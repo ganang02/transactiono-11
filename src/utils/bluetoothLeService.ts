@@ -62,11 +62,12 @@ export class BluetoothLeService {
     }
     
     try {
-      // Use requestLEScan instead of startLEScan
+      // Use requestLEScan instead of startLEScan and use the correct enum for scanMode
       await BluetoothLe.requestLEScan({
         services: [], // Scan for all services
         allowDuplicates: false,
-        scanMode: 'lowLatency',
+        // Fix: Use the correct ScanMode enum value, not a string
+        scanMode: 1, // 1 corresponds to 'lowLatency' in the plugin
       });
       
       console.log('Bluetooth LE scan started');
@@ -154,14 +155,16 @@ export class BluetoothLeService {
 
   public async getCharacteristics(deviceId: string, serviceUUID: string): Promise<BleCharacteristic[]> {
     try {
-      // Get characteristics directly from the service
-      const result = await BluetoothLe.getService({
+      // Fix: Use getServices instead of getService, then find the specific service
+      const result = await BluetoothLe.getServices({
         deviceId,
-        service: serviceUUID,
       });
       
-      // The service should include its characteristics
-      return result.service.characteristics || [];
+      // Find the specific service in the returned services array
+      const service = result.services.find(s => s.uuid === serviceUUID);
+      
+      // Return the characteristics of the service if found, otherwise empty array
+      return service ? service.characteristics || [] : [];
     } catch (error) {
       console.error('Error getting characteristics:', error);
       throw error;
