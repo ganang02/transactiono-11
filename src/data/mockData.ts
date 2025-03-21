@@ -2,7 +2,6 @@
 export interface Product {
   id: string;
   name: string;
-  barcode: string;
   price: number;
   stock: number;
   category: string;
@@ -51,7 +50,6 @@ const initialProducts: Product[] = [
   {
     id: '1',
     name: 'Coffee Cup',
-    barcode: '8991234567890',
     price: 25000,
     stock: 50,
     category: 'Drinks',
@@ -59,7 +57,6 @@ const initialProducts: Product[] = [
   {
     id: '2',
     name: 'Sandwich',
-    barcode: '8991234567891',
     price: 35000,
     stock: 20,
     category: 'Food',
@@ -67,7 +64,6 @@ const initialProducts: Product[] = [
   {
     id: '3',
     name: 'French Fries',
-    barcode: '8991234567892',
     price: 20000,
     stock: 40,
     category: 'Food',
@@ -75,7 +71,6 @@ const initialProducts: Product[] = [
   {
     id: '4',
     name: 'Iced Tea',
-    barcode: '8991234567893',
     price: 15000,
     stock: 60,
     category: 'Drinks',
@@ -83,7 +78,6 @@ const initialProducts: Product[] = [
   {
     id: '5',
     name: 'Chocolate Cake',
-    barcode: '8991234567894',
     price: 40000,
     stock: 15,
     category: 'Dessert',
@@ -210,133 +204,11 @@ const STORAGE_KEYS = {
   STORE_INFO: 'pos-app-store-info'
 };
 
-// Data Access Functions
-
-// Products
-export function getProducts(): Product[] {
-  try {
-    const storedProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-    if (storedProducts) {
-      return JSON.parse(storedProducts);
-    }
-    // Initialize with default data if nothing in localStorage
-    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(initialProducts));
-    return initialProducts;
-  } catch (error) {
-    console.error('Error reading products from localStorage:', error);
-    return initialProducts;
-  }
-}
-
-export function saveProducts(products: Product[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
-  } catch (error) {
-    console.error('Error saving products to localStorage:', error);
-  }
-}
-
-// Transactions
-export function getTransactions(): Transaction[] {
-  try {
-    const storedTransactions = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-    if (storedTransactions) {
-      return JSON.parse(storedTransactions);
-    }
-    // Initialize with default data if nothing in localStorage
-    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(initialTransactions));
-    return initialTransactions;
-  } catch (error) {
-    console.error('Error reading transactions from localStorage:', error);
-    return initialTransactions;
-  }
-}
-
-export function saveTransactions(transactions: Transaction[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
-  } catch (error) {
-    console.error('Error saving transactions to localStorage:', error);
-  }
-}
-
-export function addTransaction(transaction: Transaction): Transaction {
-  try {
-    const transactions = getTransactions();
-    transactions.unshift(transaction); // Add at the beginning
-    saveTransactions(transactions);
-    return transaction;
-  } catch (error) {
-    console.error('Error adding transaction:', error);
-    throw error;
-  }
-}
-
-// Expenses
-export function getExpenses(): Expense[] {
-  try {
-    const storedExpenses = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-    if (storedExpenses) {
-      return JSON.parse(storedExpenses);
-    }
-    // Initialize with default data if nothing in localStorage
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(initialExpenses));
-    return initialExpenses;
-  } catch (error) {
-    console.error('Error reading expenses from localStorage:', error);
-    return initialExpenses;
-  }
-}
-
-export function saveExpenses(expenses: Expense[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
-  } catch (error) {
-    console.error('Error saving expenses to localStorage:', error);
-  }
-}
-
-export function addExpense(expense: Expense): Expense {
-  try {
-    const expenses = getExpenses();
-    expenses.unshift(expense); // Add at the beginning
-    saveExpenses(expenses);
-    return expense;
-  } catch (error) {
-    console.error('Error adding expense:', error);
-    throw error;
-  }
-}
-
-// Store Info
-export function getStoreInfo(): StoreInfo {
-  try {
-    const storedStoreInfo = localStorage.getItem(STORAGE_KEYS.STORE_INFO);
-    if (storedStoreInfo) {
-      return JSON.parse(storedStoreInfo);
-    }
-    // Initialize with default data if nothing in localStorage
-    localStorage.setItem(STORAGE_KEYS.STORE_INFO, JSON.stringify(initialStoreInfo));
-    return initialStoreInfo;
-  } catch (error) {
-    console.error('Error reading store info from localStorage:', error);
-    return initialStoreInfo;
-  }
-}
-
-export function saveStoreInfo(storeInfo: StoreInfo): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.STORE_INFO, JSON.stringify(storeInfo));
-  } catch (error) {
-    console.error('Error saving store info to localStorage:', error);
-  }
-}
-
 // For backwards compatibility, still export the initial mock data
-export const products = getProducts();
-export const transactions = getTransactions();
-export const expenses = getExpenses();
-export const storeInfo = getStoreInfo();
+export const products = initialProducts;
+export const transactions = initialTransactions;
+export const expenses = initialExpenses;
+export const storeInfo = initialStoreInfo;
 
 // Helper functions
 export function formatCurrency(amount: number): string {
@@ -359,23 +231,24 @@ export function formatDate(dateString: string): string {
   }).format(date);
 }
 
-// Dashboard summary data
+// Dashboard summary data - this is now replaced by API calls
 export function getDashboardData() {
-  const transactions = getTransactions();
-  const products = getProducts();
-  const expenses = getExpenses();
+  // Create an interface for the product sales object
+  interface ProductSale {
+    id: string;
+    name: string;
+    quantity: number;
+    revenue: number;
+  }
+
+  // For type safety with the productSales object
+  const productSales: Record<string, ProductSale> = {};
   
-  // Total revenue
-  const totalRevenue = transactions.reduce((sum, transaction) => {
-    if (transaction.status === 'completed') {
-      return sum + transaction.total;
-    }
-    return sum;
-  }, 0);
-  
-  // Today's revenue
+  // Filter today's transactions
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  
+  // Calculate today's revenue
   const todayRevenue = transactions.reduce((sum, transaction) => {
     const transactionDate = new Date(transaction.date);
     if (transaction.status === 'completed' && transactionDate >= today) {
@@ -384,17 +257,10 @@ export function getDashboardData() {
     return sum;
   }, 0);
   
-  // Total number of transactions
-  const totalTransactions = transactions.length;
-  
-  // Total expenses
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  
   // Low stock products
   const lowStockProducts = products.filter(product => product.stock < 10);
   
-  // Best selling products
-  const productSales = {};
+  // Best selling products - making sure we access productSales correctly
   transactions.forEach(transaction => {
     transaction.items.forEach(item => {
       if (!productSales[item.productId]) {
@@ -410,6 +276,7 @@ export function getDashboardData() {
     });
   });
   
+  // This handles the type safety correctly
   const bestSellingProducts = Object.values(productSales)
     .sort((a, b) => b.quantity - a.quantity)
     .slice(0, 5);
@@ -450,10 +317,9 @@ export function getDashboardData() {
   });
   
   return {
-    totalRevenue,
+    totalRevenue: 0, // Removed as requested
     todayRevenue,
-    totalTransactions,
-    totalExpenses,
+    totalTransactions: transactions.length,
     lowStockProducts,
     bestSellingProducts,
     recentTransactions,

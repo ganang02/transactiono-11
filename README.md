@@ -7,12 +7,24 @@ A simple POS (Point of Sale) system with MySQL database integration.
 
 ### Backend Setup:
 
-1. Install MySQL and create a database:
+1. Make sure you have MySQL installed and running.
+
+2. Create the database schema:
    ```
    mysql -u root -p < server/database_schema.sql
    ```
 
-2. Set up the backend server:
+3. Set up the environment variables for the backend server:
+   Update the server/.env file with your MySQL credentials:
+   ```
+   PORT=5000
+   DB_HOST=localhost
+   DB_USER=root
+   DB_PASSWORD=your_password
+   DB_NAME=pos_system
+   ```
+
+4. Set up the backend server:
    ```
    cd server
    npm install
@@ -21,12 +33,17 @@ A simple POS (Point of Sale) system with MySQL database integration.
 
 ### Frontend Setup:
 
-1. Install dependencies:
+1. Set the API URL in src/.env:
+   ```
+   VITE_API_URL=http://localhost:5000/api
+   ```
+
+2. Install dependencies:
    ```
    npm install
    ```
 
-2. Start development server:
+3. Start development server:
    ```
    npm run dev
    ```
@@ -58,9 +75,26 @@ A simple POS (Point of Sale) system with MySQL database integration.
 
 ## Features
 
-- Real-time inventory management
+- Real-time inventory management with MySQL database
 - Sales and transaction tracking
-- Expense management
 - Dashboard with analytics
 - Receipt printing via Bluetooth
 - Mobile application support
+
+## API Endpoints
+
+The backend provides the following API endpoints:
+
+- `/api/products` - Manage products
+- `/api/transactions` - Record and retrieve transactions
+- `/api/store` - Store information
+- `/api/dashboard` - Dashboard analytics data
+
+## Database Structure
+
+The MySQL database includes the following tables:
+
+- `products` - Product inventory
+- `transactions` - Sales transactions
+- `transaction_items` - Items in each transaction
+- `store_info` - Store information

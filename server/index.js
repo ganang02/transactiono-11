@@ -51,10 +51,10 @@ app.get('/api/products', async (req, res) => {
 
 app.post('/api/products', async (req, res) => {
   try {
-    const { name, price, barcode, stock, category } = req.body;
+    const { name, price, stock, category } = req.body;
     const [result] = await pool.query(
-      'INSERT INTO products (name, price, barcode, stock, category) VALUES (?, ?, ?, ?, ?)',
-      [name, price, barcode, stock, category]
+      'INSERT INTO products (name, price, stock, category) VALUES (?, ?, ?, ?)',
+      [name, price, stock, category]
     );
     
     const [newProduct] = await pool.query('SELECT * FROM products WHERE id = ?', [result.insertId]);
@@ -67,12 +67,12 @@ app.post('/api/products', async (req, res) => {
 
 app.put('/api/products/:id', async (req, res) => {
   try {
-    const { name, price, barcode, stock, category } = req.body;
+    const { name, price, stock, category } = req.body;
     const productId = req.params.id;
     
     await pool.query(
-      'UPDATE products SET name = ?, price = ?, barcode = ?, stock = ?, category = ? WHERE id = ?',
-      [name, price, barcode, stock, category, productId]
+      'UPDATE products SET name = ?, price = ?, stock = ?, category = ? WHERE id = ?',
+      [name, price, stock, category, productId]
     );
     
     const [updatedProduct] = await pool.query('SELECT * FROM products WHERE id = ?', [productId]);
@@ -273,33 +273,6 @@ app.get('/api/dashboard', async (req, res) => {
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     res.status(500).json({ error: 'Failed to fetch dashboard data' });
-  }
-});
-
-// Expenses
-app.get('/api/expenses', async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT * FROM expenses ORDER BY date DESC');
-    res.json(rows);
-  } catch (error) {
-    console.error('Error fetching expenses:', error);
-    res.status(500).json({ error: 'Failed to fetch expenses' });
-  }
-});
-
-app.post('/api/expenses', async (req, res) => {
-  try {
-    const { amount, category, description } = req.body;
-    const [result] = await pool.query(
-      'INSERT INTO expenses (date, amount, category, description) VALUES (NOW(), ?, ?, ?)',
-      [amount, category, description]
-    );
-    
-    const [newExpense] = await pool.query('SELECT * FROM expenses WHERE id = ?', [result.insertId]);
-    res.status(201).json(newExpense[0]);
-  } catch (error) {
-    console.error('Error creating expense:', error);
-    res.status(500).json({ error: 'Failed to create expense' });
   }
 });
 

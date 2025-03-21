@@ -9,118 +9,100 @@ import {
   Trash2,
   Filter,
   ArrowUpDown,
-  Barcode,
   Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GlassCard from "@/components/ui-custom/GlassCard";
-import { products as initialProducts, formatCurrency } from "@/data/mockData";
+import { formatCurrency } from "@/api/api";
 import { SlideUpTransition } from "@/hooks/useTransition";
 import { toast } from "@/hooks/use-toast";
 import { Spinner } from "@/components/ui/spinner";
-
-// Helper to save and load from localStorage
-const LOCAL_STORAGE_KEYS = {
-  PRODUCTS: 'pos-app-products'
-};
+import { ProductsAPI } from "@/api/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 const Products = () => {
   const [search, setSearch] = useState("");
   const [showAddProduct, setShowAddProduct] = useState(false);
-  const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [sortField, setSortField] = useState<"name" | "price" | "stock" | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-
+  
   // New product form state
   const [newProduct, setNewProduct] = useState({
     name: "",
     price: "",
-    barcode: "",
     stock: "",
     category: ""
   });
 
-  // Load products from localStorage on initial render
-  useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        const savedProducts = localStorage.getItem(LOCAL_STORAGE_KEYS.PRODUCTS);
-        
-        if (savedProducts) {
-          const parsedProducts = JSON.parse(savedProducts);
-          setProducts(parsedProducts);
-          setFilteredProducts(parsedProducts);
-        } else {
-          // Use initial data if nothing in localStorage
-          setProducts(initialProducts);
-          setFilteredProducts(initialProducts);
-          // Save initial data to localStorage
-          localStorage.setItem(LOCAL_STORAGE_KEYS.PRODUCTS, JSON.stringify(initialProducts));
-        }
-      } catch (error) {
-        console.error("Error loading products:", error);
-        toast({
-          title: "Failed to load products",
-          description: "An error occurred while loading products",
-          variant: "destructive",
-        });
-        // Fallback to initial data
-        setProducts(initialProducts);
-        setFilteredProducts(initialProducts);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const queryClient = useQueryClient();
 
-    loadProducts();
-  }, []);
+  // Fetch products from API
+  const { data: products = [], isLoading, isError } = useQuery({
+    queryKey: ['products'],
+    queryFn: ProductsAPI.getAll
+  });
 
-  const saveProducts = async (updatedProducts) => {
-    setIsSaving(true);
-    try {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      localStorage.setItem(LOCAL_STORAGE_KEYS.PRODUCTS, JSON.stringify(updatedProducts));
-      
+  // Create product mutation
+  const createProductMutation = useMutation({
+    mutationFn: ProductsAPI.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       toast({
-        title: "Products saved",
-        description: "Products have been saved successfully",
+        title: "Product added",
+        description: "The product has been added successfully",
       });
-    } catch (error) {
-      console.error("Error saving products:", error);
+      setShowAddProduct(false);
+      resetForm();
+    },
+    onError: (error) => {
       toast({
-        title: "Failed to save products",
-        description: "An error occurred while saving products",
+        title: "Failed to add product",
+        description: error.message || "An error occurred while adding the product",
         variant: "destructive",
       });
-    } finally {
-      setIsSaving(false);
     }
-  };
+  });
+
+  // Delete product mutation
+  const deleteProductMutation = useMutation({
+    mutationFn: ProductsAPI.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast({
+        title: "Product deleted",
+        description: "The product has been deleted successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to delete product",
+        description: error.message || "An error occurred while deleting the product",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update filtered products when products or search change
+  useEffect(() => {
+    if (products) {
+      if (search === "") {
+        setFilteredProducts(products);
+      } else {
+        const searchTerm = search.toLowerCase();
+        const filtered = products.filter(
+          (product) =>
+            product.name.toLowerCase().includes(searchTerm) ||
+            product.category.toLowerCase().includes(searchTerm)
+        );
+        setFilteredProducts(filtered);
+      }
+    }
+  }, [products, search]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const searchTerm = e.target.value.toLowerCase();
-    setSearch(searchTerm);
-    
-    if (searchTerm === "") {
-      setFilteredProducts(products);
-    } else {
-      const filtered = products.filter(
-        (product) =>
-          product.name.toLowerCase().includes(searchTerm) ||
-          product.barcode.includes(searchTerm) ||
-          product.category.toLowerCase().includes(searchTerm)
-      );
-      setFilteredProducts(filtered);
-    }
+    setSearch(e.target.value);
   };
 
   const handleSort = (field: "name" | "price" | "stock") => {
@@ -157,7 +139,7 @@ const Products = () => {
 
   const handleAddProduct = () => {
     // Validate form
-    if (!newProduct.name || !newProduct.price || !newProduct.barcode || !newProduct.stock || !newProduct.category) {
+    if (!newProduct.name || !newProduct.price || !newProduct.stock || !newProduct.category) {
       toast({
         title: "Missing fields",
         description: "Please fill in all required fields",
@@ -166,42 +148,25 @@ const Products = () => {
       return;
     }
     
-    // Check if barcode already exists
-    if (products.some(product => product.barcode === newProduct.barcode)) {
-      toast({
-        title: "Duplicate barcode",
-        description: "A product with this barcode already exists",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Create new product
-    const newProductObj = {
-      id: Math.random().toString(36).substring(2, 9),
+    // Create product object
+    const productToCreate = {
       name: newProduct.name,
       price: parseFloat(newProduct.price),
-      barcode: newProduct.barcode,
       stock: parseInt(newProduct.stock),
       category: newProduct.category,
-      image: null // No image, we're using icons now
     };
     
-    // Update state and save to localStorage
-    const updatedProducts = [...products, newProductObj];
-    setProducts(updatedProducts);
-    setFilteredProducts(updatedProducts);
-    saveProducts(updatedProducts);
-    
-    // Reset form and close modal
+    // Call API using mutation
+    createProductMutation.mutate(productToCreate);
+  };
+
+  const resetForm = () => {
     setNewProduct({
       name: "",
       price: "",
-      barcode: "",
       stock: "",
       category: ""
     });
-    setShowAddProduct(false);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -214,12 +179,23 @@ const Products = () => {
 
   const handleDeleteProduct = (productId) => {
     if (confirm("Are you sure you want to delete this product?")) {
-      const updatedProducts = products.filter(product => product.id !== productId);
-      setProducts(updatedProducts);
-      setFilteredProducts(updatedProducts);
-      saveProducts(updatedProducts);
+      deleteProductMutation.mutate(productId);
     }
   };
+
+  if (isError) {
+    return (
+      <div className="container px-4 mx-auto max-w-7xl py-12 text-center">
+        <h2 className="text-xl font-semibold mb-4">Error loading products</h2>
+        <p className="text-muted-foreground mb-6">
+          There was an error connecting to the database. Please check your connection and try again.
+        </p>
+        <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['products'] })}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="container px-4 mx-auto max-w-7xl pb-8 animate-fade-in">
@@ -243,24 +219,6 @@ const Products = () => {
             <Plus className="h-4 w-4 mr-2" />
             Add Product
           </Button>
-          <Button 
-            variant="outline" 
-            className="gap-2"
-            onClick={() => saveProducts(products)}
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <>
-                <Spinner size="sm" className="mr-1" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                Save
-              </>
-            )}
-          </Button>
         </div>
       </div>
 
@@ -282,7 +240,6 @@ const Products = () => {
                     </div>
                   </th>
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground text-sm">Category</th>
-                  <th className="py-3 px-4 text-left font-medium text-muted-foreground text-sm">Barcode</th>
                   <th className="py-3 px-4 text-right font-medium text-muted-foreground text-sm">
                     <div className="flex items-center justify-end cursor-pointer" onClick={() => handleSort("price")}>
                       Price
@@ -314,7 +271,6 @@ const Products = () => {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-sm">{product.category}</td>
-                        <td className="py-3 px-4 text-sm font-mono">{product.barcode}</td>
                         <td className="py-3 px-4 text-right text-sm">{formatCurrency(product.price)}</td>
                         <td className="py-3 px-4 text-right text-sm">{product.stock}</td>
                         <td className="py-3 px-4">
@@ -327,6 +283,7 @@ const Products = () => {
                               size="icon" 
                               className="h-8 w-8 text-destructive"
                               onClick={() => handleDeleteProduct(product.id)}
+                              disabled={deleteProductMutation.isPending}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -337,7 +294,7 @@ const Products = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center">
+                    <td colSpan={5} className="py-8 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <Package className="h-8 w-8 text-muted-foreground mb-2" />
                         <p className="text-muted-foreground">No products found</p>
@@ -403,26 +360,22 @@ const Products = () => {
                   />
                 </div>
                 
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Barcode</label>
-                  <div className="relative">
-                    <Barcode className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      name="barcode"
-                      value={newProduct.barcode}
-                      onChange={handleInputChange}
-                      placeholder="Enter barcode number"
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                
                 <div className="pt-4 flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowAddProduct(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleAddProduct}>
-                    Add Product
+                  <Button 
+                    onClick={handleAddProduct}
+                    disabled={createProductMutation.isPending}
+                  >
+                    {createProductMutation.isPending ? (
+                      <>
+                        <Spinner size="sm" className="mr-2" />
+                        Adding...
+                      </>
+                    ) : (
+                      "Add Product"
+                    )}
                   </Button>
                 </div>
               </div>

@@ -7,7 +7,6 @@ USE pos_system;
 CREATE TABLE IF NOT EXISTS products (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
-  barcode VARCHAR(50) NOT NULL UNIQUE,
   price DECIMAL(10, 2) NOT NULL,
   stock INT NOT NULL DEFAULT 0,
   category VARCHAR(100) NOT NULL,
@@ -40,15 +39,6 @@ CREATE TABLE IF NOT EXISTS transaction_items (
   FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
 );
 
--- Expenses table
-CREATE TABLE IF NOT EXISTS expenses (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  date DATETIME NOT NULL,
-  amount DECIMAL(10, 2) NOT NULL,
-  category VARCHAR(100) NOT NULL,
-  description TEXT NOT NULL
-);
-
 -- Store info table
 CREATE TABLE IF NOT EXISTS store_info (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -63,9 +53,9 @@ INSERT INTO store_info (name, whatsapp, address, notes)
 VALUES ('Coffee Corner', '+6281234567890', 'Jl. Sudirman No. 123, Jakarta', 'Open daily from 8 AM to 10 PM');
 
 -- Insert some sample products
-INSERT INTO products (name, barcode, price, stock, category) VALUES
-('Coffee Cup', '8991234567890', 25000, 50, 'Drinks'),
-('Sandwich', '8991234567891', 35000, 20, 'Food'),
-('French Fries', '8991234567892', 20000, 40, 'Food'),
-('Iced Tea', '8991234567893', 15000, 60, 'Drinks'),
-('Chocolate Cake', '8991234567894', 40000, 15, 'Dessert');
+INSERT INTO products (name, price, stock, category) VALUES
+('Coffee Cup', 25000, 50, 'Drinks'),
+('Sandwich', 35000, 20, 'Food'),
+('French Fries', 20000, 40, 'Food'),
+('Iced Tea', 15000, 60, 'Drinks'),
+('Chocolate Cake', 40000, 15, 'Dessert');

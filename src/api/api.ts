@@ -4,7 +4,7 @@ import { toast } from "@/hooks/use-toast";
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Helper function for API requests
-async function apiRequest(endpoint: string, options = {}) {
+async function apiRequest(endpoint: string, options: RequestInit = {}) {
   const url = `${API_URL}${endpoint}`;
   
   try {
@@ -12,7 +12,7 @@ async function apiRequest(endpoint: string, options = {}) {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        ...options.headers,
+        ...(options.headers || {}),
       },
     });
 
