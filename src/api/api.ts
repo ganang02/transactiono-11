@@ -90,6 +90,40 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
       };
     }
     
+    if (endpoint === '/transactions/pending') {
+      console.log('Returning mock pending transactions data');
+      return [
+        { 
+          id: 'P001', 
+          date: new Date().toISOString(), 
+          items: [
+            { productId: '1', productName: 'Coffee', quantity: 2, price: 15000, subtotal: 30000 },
+            { productId: '3', productName: 'Sandwich', quantity: 1, price: 25000, subtotal: 25000 }
+          ],
+          subtotal: 55000,
+          tax: 0,
+          total: 55000,
+          paymentMethod: null,
+          paymentStatus: 'pending',
+          status: 'pending'
+        },
+        { 
+          id: 'P002', 
+          date: new Date(Date.now() - 86400000).toISOString(), 
+          items: [
+            { productId: '2', productName: 'Tea', quantity: 1, price: 12000, subtotal: 12000 },
+            { productId: '4', productName: 'Cake', quantity: 1, price: 18000, subtotal: 18000 }
+          ],
+          subtotal: 30000,
+          tax: 0,
+          total: 30000,
+          paymentMethod: null,
+          paymentStatus: 'pending',
+          status: 'pending'
+        }
+      ];
+    }
+    
     throw error;
   }
 }
@@ -117,9 +151,16 @@ export const ProductsAPI = {
 export const TransactionsAPI = {
   getAll: () => apiRequest('/transactions'),
   
+  getPending: () => apiRequest('/transactions/pending'),
+  
   create: (transaction) => apiRequest('/transactions', {
     method: 'POST',
     body: JSON.stringify(transaction),
+  }),
+  
+  updateStatus: (id, updateData) => apiRequest(`/transactions/${id}/status`, {
+    method: 'PUT',
+    body: JSON.stringify(updateData),
   }),
 };
 

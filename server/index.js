@@ -115,18 +115,41 @@ app.get('/api/transactions', async (req, res) => {
   }
 });
 
+// Get pending transactions
+app.get('/api/transactions/pending', async (req, res) => {
+  try {
+    const [transactions] = await pool.query(
+      'SELECT * FROM transactions WHERE payment_status = "pending" ORDER BY date DESC'
+    );
+    
+    // For each transaction, get its items
+    for (let i = 0; i < transactions.length; i++) {
+      const [items] = await pool.query(
+        'SELECT * FROM transaction_items WHERE transaction_id = ?', 
+        [transactions[i].id]
+      );
+      transactions[i].items = items;
+    }
+    
+    res.json(transactions);
+  } catch (error) {
+    console.error('Error fetching pending transactions:', error);
+    res.status(500).json({ error: 'Failed to fetch pending transactions' });
+  }
+});
+
 app.post('/api/transactions', async (req, res) => {
   const connection = await pool.getConnection();
   
   try {
     await connection.beginTransaction();
     
-    const { items, subtotal, tax, total, paymentMethod, status, receipt, amountPaid, change } = req.body;
+    const { items, subtotal, tax, total, paymentMethod, paymentStatus, status, receipt, amountPaid, change } = req.body;
     
     // Insert transaction
     const [resultTransaction] = await connection.query(
-      'INSERT INTO transactions (date, total, subtotal, tax, payment_method, status, receipt, amount_paid, change_amount) VALUES (NOW(), ?, ?, ?, ?, ?, ?, ?, ?)',
-      [total, subtotal, tax, paymentMethod, status, receipt ? 1 : 0, amountPaid || null, change || null]
+      'INSERT INTO transactions (date, total, subtotal, tax, payment_method, payment_status, status, receipt, amount_paid, change_amount) VALUES (NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [total, subtotal, tax, paymentMethod || null, paymentStatus || 'pending', status, receipt ? 1 : 0, amountPaid || null, change || null]
     );
     
     const transactionId = resultTransaction.insertId;
@@ -158,6 +181,40 @@ app.post('/api/transactions', async (req, res) => {
     await connection.rollback();
     console.error('Error creating transaction:', error);
     res.status(500).json({ error: 'Failed to create transaction' });
+  } finally {
+    connection.release();
+  }
+});
+
+// Update transaction status
+app.put('/api/transactions/:id/status', async (req, res) => {
+  const connection = await pool.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    const transactionId = req.params.id;
+    const { paymentStatus, paymentMethod, amountPaid, change } = req.body;
+    
+    // Update transaction status
+    await connection.query(
+      'UPDATE transactions SET payment_status = ?, status = ?, payment_method = ?, amount_paid = ?, change_amount = ? WHERE id = ?',
+      [paymentStatus, paymentStatus, paymentMethod, amountPaid || null, change || null, transactionId]
+    );
+    
+    await connection.commit();
+    
+    // Get the updated transaction with items
+    const [updatedTransaction] = await connection.query('SELECT * FROM transactions WHERE id = ?', [transactionId]);
+    const [transactionItems] = await connection.query('SELECT * FROM transaction_items WHERE transaction_id = ?', [transactionId]);
+    
+    updatedTransaction[0].items = transactionItems;
+    
+    res.json(updatedTransaction[0]);
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error updating transaction status:', error);
+    res.status(500).json({ error: 'Failed to update transaction status' });
   } finally {
     connection.release();
   }
@@ -206,19 +263,23 @@ app.get('/api/dashboard', async (req, res) => {
   try {
     // Total Revenue
     const [totalRevenueResult] = await pool.query(
-      'SELECT SUM(total) as totalRevenue FROM transactions WHERE status = "completed"'
+      'SELECT SUM(total) as totalRevenue FROM transactions WHERE payment_status = "completed"'
     );
     const totalRevenue = totalRevenueResult[0].totalRevenue || 0;
     
     // Today's Revenue
     const [todayRevenueResult] = await pool.query(
-      'SELECT SUM(total) as todayRevenue FROM transactions WHERE status = "completed" AND DATE(date) = CURDATE()'
+      'SELECT SUM(total) as todayRevenue FROM transactions WHERE payment_status = "completed" AND DATE(date) = CURDATE()'
     );
     const todayRevenue = todayRevenueResult[0].todayRevenue || 0;
     
     // Total number of transactions
-    const [totalTransactionsResult] = await pool.query('SELECT COUNT(*) as count FROM transactions');
+    const [totalTransactionsResult] = await pool.query('SELECT COUNT(*) as count FROM transactions WHERE payment_status = "completed"');
     const totalTransactions = totalTransactionsResult[0].count;
+    
+    // Pending Payments count
+    const [pendingPaymentsResult] = await pool.query('SELECT COUNT(*) as count FROM transactions WHERE payment_status = "pending"');
+    const pendingPayments = pendingPaymentsResult[0].count;
     
     // Low stock products
     const [lowStockProducts] = await pool.query('SELECT * FROM products WHERE stock < 10');
@@ -232,6 +293,8 @@ app.get('/api/dashboard', async (req, res) => {
         SUM(ti.subtotal) as revenue
       FROM transaction_items ti
       JOIN products p ON ti.product_id = p.id
+      JOIN transactions t ON ti.transaction_id = t.id
+      WHERE t.payment_status = "completed"
       GROUP BY p.id, p.name
       ORDER BY quantity DESC
       LIMIT 5
@@ -250,7 +313,7 @@ app.get('/api/dashboard', async (req, res) => {
         DATE(date) as date,
         SUM(total) as revenue
       FROM transactions
-      WHERE status = "completed" AND date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      WHERE payment_status = "completed" AND date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
       GROUP BY DATE(date)
       ORDER BY date
     `);
@@ -265,6 +328,7 @@ app.get('/api/dashboard', async (req, res) => {
       totalRevenue,
       todayRevenue,
       totalTransactions,
+      pendingPayments,
       lowStockProducts,
       bestSellingProducts,
       recentTransactions,
