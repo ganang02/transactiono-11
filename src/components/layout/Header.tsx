@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -65,15 +65,24 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
     }
   };
 
+  const dispatchSearchEvent = useCallback((query: string) => {
+    // Dispatch a custom event that the page components will listen for
+    const searchEvent = new CustomEvent('app-search', { detail: query });
+    window.dispatchEvent(searchEvent);
+  }, []);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     
     // Handle search based on current page
-    if (location.pathname === "/products" || location.pathname === "/transactions") {
-      // Dispatch a custom event that the page components will listen for
-      const searchEvent = new CustomEvent('app-search', { detail: searchQuery });
-      window.dispatchEvent(searchEvent);
-      
+    if (location.pathname === "/products" || location.pathname === "/transactions" || location.pathname === "/cashier") {
+      dispatchSearchEvent(searchQuery);
+      setSearchOpen(false);
+    } else {
+      // If we're not on a searchable page, navigate to products by default
+      navigate('/products');
+      // Delay dispatching the event slightly to ensure the page has loaded
+      setTimeout(() => dispatchSearchEvent(searchQuery), 100);
       setSearchOpen(false);
     }
   };

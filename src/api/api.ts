@@ -18,18 +18,36 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
       },
     });
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      toast({
-        title: "Error",
-        description: data.error || 'An error occurred',
-        variant: "destructive",
-      });
-      throw new Error(data.error || 'An error occurred');
+    // For non-JSON responses
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.indexOf("application/json") !== -1) {
+      const data = await response.json();
+      
+      if (!response.ok) {
+        toast({
+          title: "Error",
+          description: data.error || 'An error occurred',
+          variant: "destructive",
+        });
+        throw new Error(data.error || 'An error occurred');
+      }
+      
+      return data;
+    } else {
+      // Handle non-JSON responses
+      const text = await response.text();
+      
+      if (!response.ok) {
+        toast({
+          title: "Error",
+          description: text || 'An error occurred',
+          variant: "destructive",
+        });
+        throw new Error(text || 'An error occurred');
+      }
+      
+      return { success: true, text };
     }
-    
-    return data;
   } catch (error) {
     console.error(`API Error (${endpoint}):`, error);
     // Show specific network errors for mobile debugging
@@ -40,6 +58,38 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
         variant: "destructive",
       });
     }
+    
+    // Mock data for development without backend
+    if (endpoint === '/products' && options.method === undefined) {
+      console.log('Returning mock products data');
+      return [
+        { id: '1', name: 'Coffee', price: 15000, stock: 100, category: 'drinks', barcode: '8991234567891' },
+        { id: '2', name: 'Tea', price: 12000, stock: 75, category: 'drinks', barcode: '8991234567892' },
+        { id: '3', name: 'Sandwich', price: 25000, stock: 20, category: 'food', barcode: '8991234567893' },
+        { id: '4', name: 'Cake', price: 18000, stock: 15, category: 'dessert', barcode: '8991234567894' },
+        { id: '5', name: 'Cookies', price: 10000, stock: 5, category: 'dessert', barcode: '8991234567895' },
+      ];
+    }
+    
+    if (endpoint === '/dashboard') {
+      console.log('Returning mock dashboard data');
+      return {
+        salesSummary: {
+          total: 1250000,
+          count: 25,
+          average: 50000
+        },
+        recentTransactions: [
+          { id: 'T001', date: new Date().toISOString(), total: 85000, items: 3 },
+          { id: 'T002', date: new Date().toISOString(), total: 120000, items: 5 },
+        ],
+        topProducts: [
+          { name: 'Coffee', sold: 45, revenue: 675000 },
+          { name: 'Sandwich', sold: 18, revenue: 450000 },
+        ]
+      };
+    }
+    
     throw error;
   }
 }

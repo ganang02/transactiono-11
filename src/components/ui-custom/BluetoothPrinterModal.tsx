@@ -8,6 +8,7 @@ import { X, Bluetooth, Printer, Check, RefreshCw, Eye } from 'lucide-react';
 import GlassCard from './GlassCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReceiptPreview from './ReceiptPreview';
+import { toast } from '@/hooks/use-toast';
 
 interface BluetoothPrinterModalProps {
   isOpen: boolean;
@@ -31,15 +32,17 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
     scanForDevices,
     connectToDevice,
     disconnectFromDevice,
+    isConnecting,
   } = useBluetoothPrinter();
   const [activeTab, setActiveTab] = useState<string>('connect');
+  const [scanAttempted, setScanAttempted] = useState<boolean>(false);
 
   // Auto scan when the modal is opened
   useEffect(() => {
     if (isOpen) {
-      scanForDevices();
+      handleScan();
     }
-  }, [isOpen, scanForDevices]);
+  }, [isOpen]);
 
   // Switch to preview tab if available
   useEffect(() => {
@@ -50,9 +53,25 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
 
   const handleScan = async () => {
     try {
+      setScanAttempted(true);
       await scanForDevices();
     } catch (error) {
       console.error('Error scanning for devices:', error);
+      toast({
+        title: "Bluetooth scanning failed",
+        description: "Make sure Bluetooth is enabled and permissions are granted",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleConnect = async (deviceId: string) => {
+    try {
+      await connectToDevice(deviceId);
+      // After connection is successful, automatically select the printer
+      onPrinterSelected();
+    } catch (error) {
+      console.error('Error connecting to device:', error);
     }
   };
 
@@ -128,21 +147,23 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                             ? 'bg-primary/10 border-primary' 
                             : 'hover:bg-muted/50'
                         } cursor-pointer transition-colors`}
-                        onClick={() => connectToDevice(device.id)}
+                        onClick={() => handleConnect(device.id)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <Printer className="h-4 w-4 text-muted-foreground" />
-                            <span>{device.name}</span>
+                            <span>{device.name || 'Unknown Device'}</span>
                           </div>
-                          {selectedDevice?.id === device.id && (
+                          {isConnecting && selectedDevice?.id === device.id ? (
+                            <Spinner className="h-3 w-3 text-primary" />
+                          ) : selectedDevice?.id === device.id && (
                             <Check className="h-4 w-4 text-primary" />
                           )}
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : (
+                ) : scanAttempted ? (
                   <div className="py-8 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <Bluetooth className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
@@ -151,7 +172,17 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                         Make sure your printer is turned on and in pairing mode
                       </p>
                       <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-                        Note: Web Bluetooth may require special permissions or may not be available in all browsers.
+                        On Android, make sure to grant location and Bluetooth permissions in settings
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-8 text-center">
+                    <div className="flex flex-col items-center justify-center">
+                      <Bluetooth className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                      <p className="font-medium">Click Scan to find printers</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Make sure Bluetooth is enabled on your device
                       </p>
                     </div>
                   </div>
@@ -181,7 +212,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                 <>
                   <p className="text-center text-sm">
                     <span className="inline-block px-2 py-1 rounded bg-primary/10 text-primary">
-                      Connected to {selectedDevice.name}
+                      Connected to {selectedDevice.name || 'Unknown Device'}
                     </span>
                   </p>
                   <div className="grid grid-cols-2 gap-3">

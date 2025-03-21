@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -23,6 +24,15 @@ import { useBluetoothPrinter } from "@/hooks/useBluetoothPrinter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
 import { ProductsAPI, TransactionsAPI, StoreAPI } from "@/api/api";
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  category: string;
+  barcode: string;
+}
 
 interface CartItem {
   id: string;
@@ -51,6 +61,13 @@ interface TransactionData {
   change?: number;
 }
 
+interface StoreInfo {
+  name: string;
+  address: string;
+  whatsapp: string;
+  notes?: string;
+}
+
 const Cashier = () => {
   const queryClient = useQueryClient();
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -60,7 +77,7 @@ const Cashier = () => {
   const [printReceipt, setPrintReceipt] = useState(true);
   const [searchFocused, setSearchFocused] = useState(false);
   const [showPrinterModal, setShowPrinterModal] = useState(false);
-  const [currentTransaction, setCurrentTransaction] = useState(null);
+  const [currentTransaction, setCurrentTransaction] = useState<TransactionData | null>(null);
   
   const { 
     selectedDevice: connectedPrinter,
@@ -69,15 +86,15 @@ const Cashier = () => {
   } = useBluetoothPrinter();
 
   const { 
-    data: productsData, 
+    data: productsData = [], 
     isLoading: isLoadingProducts,
     error: productsError
-  } = useQuery({
+  } = useQuery<Product[]>({
     queryKey: ['products'],
     queryFn: ProductsAPI.getAll,
   });
 
-  const { data: storeInfo } = useQuery({
+  const { data: storeInfo } = useQuery<StoreInfo>({
     queryKey: ['store'],
     queryFn: StoreAPI.getInfo,
   });
@@ -102,7 +119,7 @@ const Cashier = () => {
       setShowPayment(false);
       setPaymentAmount("");
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Transaction failed",
         description: error.message || "Failed to process transaction. Please try again.",
@@ -111,21 +128,28 @@ const Cashier = () => {
     }
   });
 
-  const filteredProducts = productsData 
-    ? productsData.filter((product) => 
-        product.name.toLowerCase().includes(search.toLowerCase()) ||
-        product.barcode.includes(search)
-      )
-    : [];
+  // Compute filtered products from search term
+  const filteredProducts = useMemo(() => {
+    if (!productsData) return [];
+    
+    const searchTerm = search.toLowerCase().trim();
+    if (!searchTerm) return productsData;
+    
+    return productsData.filter(product => 
+      product.name.toLowerCase().includes(searchTerm) || 
+      (product.barcode && product.barcode.includes(searchTerm))
+    );
+  }, [productsData, search]);
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
   const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const tax = subtotal * 0.1;
+  // Removed tax calculation as requested
+  const tax = 0;
   const total = subtotal + tax;
   
   const change = paymentAmount ? parseInt(paymentAmount.replace(/[^0-9]/g, "")) - total : 0;
 
-  const addToCart = (product) => {
+  const addToCart = (product: Product) => {
     if (product.stock <= 0) {
       toast({
         title: "Out of stock",
@@ -247,7 +271,7 @@ const Cashier = () => {
     createTransactionMutation.mutate(transactionData);
   };
 
-  const handlePrintReceipt = async (transactionData) => {
+  const handlePrintReceipt = async (transactionData: TransactionData) => {
     if (!connectedPrinter) {
       toast({
         title: "Printer not connected",
@@ -256,6 +280,15 @@ const Cashier = () => {
       });
       setCurrentTransaction(transactionData);
       setShowPrinterModal(true);
+      return;
+    }
+    
+    if (!storeInfo) {
+      toast({
+        title: "Store information missing",
+        description: "Please update store information in settings",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -280,7 +313,16 @@ const Cashier = () => {
       notes: storeInfo?.notes || ''
     };
     
-    await printToBluetoothPrinter(receiptData);
+    try {
+      await printToBluetoothPrinter(receiptData);
+    } catch (error) {
+      console.error('Print error:', error);
+      toast({
+        title: "Printing failed",
+        description: "Could not print receipt. Please check printer connection.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleBarcodeScan = () => {
@@ -301,6 +343,19 @@ const Cashier = () => {
       });
     }
   };
+
+  // Sync with Header search if any
+  useEffect(() => {
+    const handleAppSearch = (e: CustomEvent) => {
+      setSearch(e.detail || "");
+    };
+    
+    window.addEventListener('app-search' as any, handleAppSearch as EventListener);
+    
+    return () => {
+      window.removeEventListener('app-search' as any, handleAppSearch as EventListener);
+    };
+  }, []);
 
   return (
     <div className="container px-4 mx-auto max-w-7xl pb-8 animate-fade-in">
@@ -459,10 +514,6 @@ const Cashier = () => {
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Subtotal</span>
                       <span>{formatCurrency(subtotal)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Tax (10%)</span>
-                      <span>{formatCurrency(tax)}</span>
                     </div>
                     <div className="flex justify-between font-medium pt-2 border-t">
                       <span>Total</span>
@@ -637,7 +688,7 @@ const Cashier = () => {
 };
 
 function getCategoryColor(category: string): string {
-  switch (category.toLowerCase()) {
+  switch (category?.toLowerCase()) {
     case 'drinks':
       return 'blue';
     case 'food':
