@@ -9,6 +9,18 @@ export function useBluetoothPrinter() {
   const [devices, setDevices] = useState<BluetoothDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<BluetoothDevice | null>(null);
 
+  // Load saved device from localStorage on initial render
+  useState(() => {
+    const savedDevice = localStorage.getItem('bluetooth-printer');
+    if (savedDevice) {
+      try {
+        setSelectedDevice(JSON.parse(savedDevice));
+      } catch (e) {
+        console.error('Error loading saved printer:', e);
+      }
+    }
+  });
+
   const scanForDevices = useCallback(async () => {
     try {
       setIsScanning(true);
@@ -31,6 +43,8 @@ export function useBluetoothPrinter() {
     try {
       const connectedDevice = await bluetoothPrinter.connectToDevice(deviceId);
       setSelectedDevice(connectedDevice);
+      // Save to localStorage for persistence
+      localStorage.setItem('bluetooth-printer', JSON.stringify(connectedDevice));
       toast({
         title: 'Connected',
         description: `Connected to ${connectedDevice.name}`,
@@ -50,6 +64,8 @@ export function useBluetoothPrinter() {
     try {
       await bluetoothPrinter.disconnectFromDevice();
       setSelectedDevice(null);
+      // Remove from localStorage
+      localStorage.removeItem('bluetooth-printer');
       toast({
         title: 'Disconnected',
         description: 'Disconnected from printer',

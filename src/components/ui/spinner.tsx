@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils';
 
 interface SpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
-  variant?: 'primary' | 'secondary' | 'success' | 'destructive' | 'warning' | 'info';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  variant?: 'primary' | 'secondary' | 'success' | 'destructive' | 'warning' | 'info' | 'light';
 }
 
 export const Spinner: React.FC<SpinnerProps> = ({ 
@@ -15,9 +15,11 @@ export const Spinner: React.FC<SpinnerProps> = ({
   ...props 
 }) => {
   const sizeClasses = {
+    xs: 'h-3 w-3 border-2',
     sm: 'h-4 w-4 border-2',
     md: 'h-6 w-6 border-2',
     lg: 'h-8 w-8 border-3',
+    xl: 'h-12 w-12 border-4',
   };
   
   const variantClasses = {
@@ -27,6 +29,7 @@ export const Spinner: React.FC<SpinnerProps> = ({
     destructive: 'text-destructive',
     warning: 'text-amber-500',
     info: 'text-blue-500',
+    light: 'text-gray-200'
   };
 
   return (

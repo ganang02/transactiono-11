@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -17,18 +16,13 @@ import {
 } from "lucide-react";
 import GlassCard from "@/components/ui-custom/GlassCard";
 import BluetoothPrinterModal from "@/components/ui-custom/BluetoothPrinterModal";
-import { 
-  getProducts, 
-  addTransaction, 
-  getStoreInfo, 
-  formatCurrency,
-  saveProducts
-} from "@/data/mockData";
+import { formatCurrency } from "@/api/api";
 import { SlideUpTransition } from "@/hooks/useTransition";
 import { toast } from "@/hooks/use-toast";
 import { useBluetoothPrinter } from "@/hooks/useBluetoothPrinter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
+import { ProductsAPI, TransactionsAPI, StoreAPI } from "@/api/api";
 
 interface CartItem {
   id: string;
@@ -58,47 +52,6 @@ interface TransactionData {
   change?: number;
 }
 
-// Real data functions for products
-const fetchProducts = async () => {
-  // Simulate some network delay for better UX
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return getProducts();
-};
-
-// Real function to create a transaction
-const createTransaction = async (transactionData: TransactionData) => {
-  // Generate a unique transaction ID
-  const newTransactionId = `T${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-  
-  // Create the complete transaction object
-  const newTransaction = { 
-    id: newTransactionId,
-    date: new Date().toISOString(),
-    ...transactionData
-  };
-  
-  // Add to storage
-  const savedTransaction = addTransaction(newTransaction);
-  
-  // Update product stock
-  const products = getProducts();
-  const updatedProducts = products.map(product => {
-    const transactionItem = transactionData.items.find(item => item.productId === product.id);
-    if (transactionItem) {
-      return {
-        ...product,
-        stock: product.stock - transactionItem.quantity
-      };
-    }
-    return product;
-  });
-  
-  // Save updated product stock
-  saveProducts(updatedProducts);
-  
-  return savedTransaction;
-};
-
 const Cashier = () => {
   const queryClient = useQueryClient();
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -122,12 +75,18 @@ const Cashier = () => {
     error: productsError
   } = useQuery({
     queryKey: ['products'],
-    queryFn: fetchProducts,
+    queryFn: ProductsAPI.getAll,
+  });
+
+  // Get store info for receipts
+  const { data: storeInfo } = useQuery({
+    queryKey: ['store'],
+    queryFn: StoreAPI.getInfo,
   });
 
   // Create transaction mutation
   const createTransactionMutation = useMutation({
-    mutationFn: createTransaction,
+    mutationFn: (transactionData: TransactionData) => TransactionsAPI.create(transactionData),
     onSuccess: (data) => {
       // Update cache
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -185,7 +144,7 @@ const Cashier = () => {
     }
     
     setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.id === product.id);
+      const existingItem = prevCart.find((item) => item.id === product.id.toString());
       
       if (existingItem) {
         // Check stock before adding more
@@ -201,10 +160,15 @@ const Cashier = () => {
         }
         
         return prevCart.map((item) => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id.toString() ? { ...item, quantity: item.quantity + 1 } : item
         );
       } else {
-        return [...prevCart, { id: product.id, name: product.name, price: product.price, quantity: 1 }];
+        return [...prevCart, { 
+          id: product.id.toString(), 
+          name: product.name, 
+          price: product.price, 
+          quantity: 1 
+        }];
       }
     });
     
@@ -307,12 +271,10 @@ const Cashier = () => {
       return;
     }
     
-    const storeInfo = getStoreInfo();
-    
     const receiptData = {
-      storeName: storeInfo.name,
-      storeAddress: storeInfo.address,
-      storeWhatsapp: storeInfo.whatsapp,
+      storeName: storeInfo?.name || '',
+      storeAddress: storeInfo?.address || '',
+      storeWhatsapp: storeInfo?.whatsapp || '',
       transactionId: transactionData.id || "",
       date: new Date().toLocaleString('id-ID'),
       items: transactionData.items.map(item => ({
@@ -327,27 +289,21 @@ const Cashier = () => {
       paymentMethod: transactionData.paymentMethod === 'cash' ? 'Cash' : 'Card',
       amountPaid: transactionData.amountPaid,
       change: transactionData.change,
-      notes: storeInfo.notes
+      notes: storeInfo?.notes || ''
     };
     
     await printToBluetoothPrinter(receiptData);
   };
 
-  // Function to handle barcode scanning
   const handleBarcodeScan = () => {
     if ('BarcodeDetector' in window) {
-      // The Web Barcode Detection API is available
       toast({
         title: "Scanning",
         description: "Please position barcode in front of camera",
       });
       
-      // In a real implementation, this would activate the camera
-      // and scan for barcodes using the Barcode Detection API
-      
-      // For now, we'll just show an example
       setTimeout(() => {
-        setSearch("8991234567891"); // This would be the scanned barcode
+        setSearch("8991234567891");
       }, 2000);
     } else {
       toast({
@@ -361,7 +317,6 @@ const Cashier = () => {
   return (
     <div className="container px-4 mx-auto max-w-7xl pb-8 animate-fade-in">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        {/* Left side - Product selection */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
@@ -457,7 +412,6 @@ const Cashier = () => {
           </GlassCard>
         </div>
 
-        {/* Right side - Cart */}
         <div className="space-y-6">
           <GlassCard className="overflow-hidden flex flex-col max-h-[calc(100vh-12rem)]">
             <div className="p-4 border-b flex items-center justify-between">
@@ -555,7 +509,6 @@ const Cashier = () => {
             )}
           </GlassCard>
           
-          {/* Printer connection status */}
           <Button 
             variant="outline" 
             className="w-full gap-2"
@@ -567,7 +520,6 @@ const Cashier = () => {
         </div>
       </div>
 
-      {/* Payment modal */}
       {showPayment && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <SlideUpTransition show={true}>
@@ -685,7 +637,6 @@ const Cashier = () => {
         </div>
       )}
       
-      {/* Bluetooth Printer Modal */}
       <BluetoothPrinterModal 
         isOpen={showPrinterModal}
         onClose={() => setShowPrinterModal(false)}
@@ -695,7 +646,6 @@ const Cashier = () => {
   );
 };
 
-// Helper to get color based on product category
 function getCategoryColor(category: string): string {
   switch (category.toLowerCase()) {
     case 'drinks':
