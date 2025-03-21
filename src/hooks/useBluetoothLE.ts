@@ -153,7 +153,7 @@ export function useBluetoothLE() {
     // Set up new interval
     rssiIntervalRef.current = window.setInterval(async () => {
       try {
-        const rssi = await bluetoothLeService.readRSSI(deviceId);
+        const rssi = await bluetoothLeService.readRssi(deviceId);
         setDeviceRSSI(prev => ({
           ...prev,
           [deviceId]: rssi
