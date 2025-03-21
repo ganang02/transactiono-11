@@ -1,5 +1,5 @@
+
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -17,7 +17,13 @@ import {
 } from "lucide-react";
 import GlassCard from "@/components/ui-custom/GlassCard";
 import BluetoothPrinterModal from "@/components/ui-custom/BluetoothPrinterModal";
-import { products, formatCurrency, storeInfo } from "@/data/mockData";
+import { 
+  getProducts, 
+  addTransaction, 
+  getStoreInfo, 
+  formatCurrency,
+  saveProducts
+} from "@/data/mockData";
 import { SlideUpTransition } from "@/hooks/useTransition";
 import { toast } from "@/hooks/use-toast";
 import { useBluetoothPrinter } from "@/hooks/useBluetoothPrinter";
@@ -31,7 +37,7 @@ interface CartItem {
   quantity: number;
 }
 
-// Define interface for transaction data to fix the type errors
+// Define interface for transaction data
 interface TransactionData {
   id?: string;
   date?: string;
@@ -52,31 +58,48 @@ interface TransactionData {
   change?: number;
 }
 
-// Simulated API functions for real-time data
+// Real data functions for products
 const fetchProducts = async () => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return products;
+  // Simulate some network delay for better UX
+  await new Promise(resolve => setTimeout(resolve, 300));
+  return getProducts();
 };
 
+// Real function to create a transaction
 const createTransaction = async (transactionData: TransactionData) => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  
+  // Generate a unique transaction ID
   const newTransactionId = `T${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
   
-  // In a real app, this would send data to a server
-  console.log('Creating transaction:', { id: newTransactionId, ...transactionData });
-  
-  return { 
+  // Create the complete transaction object
+  const newTransaction = { 
     id: newTransactionId,
     date: new Date().toISOString(),
     ...transactionData
   };
+  
+  // Add to storage
+  const savedTransaction = addTransaction(newTransaction);
+  
+  // Update product stock
+  const products = getProducts();
+  const updatedProducts = products.map(product => {
+    const transactionItem = transactionData.items.find(item => item.productId === product.id);
+    if (transactionItem) {
+      return {
+        ...product,
+        stock: product.stock - transactionItem.quantity
+      };
+    }
+    return product;
+  });
+  
+  // Save updated product stock
+  saveProducts(updatedProducts);
+  
+  return savedTransaction;
 };
 
 const Cashier = () => {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
@@ -92,7 +115,7 @@ const Cashier = () => {
     isPrinting
   } = useBluetoothPrinter();
 
-  // Fetch products data from API (simulated)
+  // Fetch products data
   const { 
     data: productsData, 
     isLoading: isLoadingProducts,
@@ -106,8 +129,10 @@ const Cashier = () => {
   const createTransactionMutation = useMutation({
     mutationFn: createTransaction,
     onSuccess: (data) => {
-      // Update cache and show success message
+      // Update cache
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       
       toast({
         title: "Transaction completed",
@@ -127,7 +152,7 @@ const Cashier = () => {
     onError: (error) => {
       toast({
         title: "Transaction failed",
-        description: "Failed to process transaction. Please try again.",
+        description: error.message || "Failed to process transaction. Please try again.",
         variant: "destructive",
       });
     }
@@ -147,11 +172,34 @@ const Cashier = () => {
   
   const change = paymentAmount ? parseInt(paymentAmount.replace(/[^0-9]/g, "")) - total : 0;
 
-  const addToCart = (product: typeof products[0]) => {
+  const addToCart = (product) => {
+    // Check if we have enough stock
+    if (product.stock <= 0) {
+      toast({
+        title: "Out of stock",
+        description: `${product.name} is out of stock`,
+        variant: "destructive",
+        duration: 2000,
+      });
+      return;
+    }
+    
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === product.id);
       
       if (existingItem) {
+        // Check stock before adding more
+        const currentQtyInCart = existingItem.quantity;
+        if (currentQtyInCart + 1 > product.stock) {
+          toast({
+            title: "Stock limit reached",
+            description: `Only ${product.stock} ${product.name} available in stock`,
+            variant: "destructive",
+            duration: 2000,
+          });
+          return prevCart;
+        }
+        
         return prevCart.map((item) => 
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -175,6 +223,20 @@ const Cashier = () => {
     if (quantity <= 0) {
       removeFromCart(id);
       return;
+    }
+    
+    // Check if we have enough stock
+    if (productsData) {
+      const product = productsData.find(p => p.id === id);
+      if (product && quantity > product.stock) {
+        toast({
+          title: "Stock limit reached",
+          description: `Only ${product.stock} ${product.name} available in stock`,
+          variant: "destructive",
+          duration: 2000,
+        });
+        return;
+      }
     }
     
     setCart((prevCart) => 
@@ -245,6 +307,8 @@ const Cashier = () => {
       return;
     }
     
+    const storeInfo = getStoreInfo();
+    
     const receiptData = {
       storeName: storeInfo.name,
       storeAddress: storeInfo.address,
@@ -269,6 +333,31 @@ const Cashier = () => {
     await printToBluetoothPrinter(receiptData);
   };
 
+  // Function to handle barcode scanning
+  const handleBarcodeScan = () => {
+    if ('BarcodeDetector' in window) {
+      // The Web Barcode Detection API is available
+      toast({
+        title: "Scanning",
+        description: "Please position barcode in front of camera",
+      });
+      
+      // In a real implementation, this would activate the camera
+      // and scan for barcodes using the Barcode Detection API
+      
+      // For now, we'll just show an example
+      setTimeout(() => {
+        setSearch("8991234567891"); // This would be the scanned barcode
+      }, 2000);
+    } else {
+      toast({
+        title: "Barcode scanning not supported",
+        description: "Your browser doesn't support barcode scanning",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container px-4 mx-auto max-w-7xl pb-8 animate-fade-in">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
@@ -287,7 +376,11 @@ const Cashier = () => {
               />
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </div>
-            <Button variant="outline" className="gap-2">
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={handleBarcodeScan}
+            >
               <Barcode className="h-4 w-4" />
               Scan
             </Button>
@@ -313,29 +406,39 @@ const Cashier = () => {
                   filteredProducts.map((product) => (
                     <SlideUpTransition key={product.id} show={true}>
                       <div
-                        className="cursor-pointer overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+                        className={`cursor-pointer overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
+                          product.stock <= 0 ? 'opacity-50' : ''
+                        }`}
                         onClick={() => addToCart(product)}
                       >
-                        <div className="aspect-square bg-muted relative overflow-hidden">
-                          {product.image ? (
-                            <img
-                              src={product.image}
-                              alt={product.name}
-                              className="object-cover w-full h-full"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="flex items-center justify-center h-full bg-muted">
-                              <Package className="h-8 w-8 text-muted-foreground" />
+                        <div className="aspect-square bg-muted relative overflow-hidden flex items-center justify-center">
+                          <div className={`bg-${getCategoryColor(product.category)}-100 w-full h-full flex items-center justify-center`}>
+                            <Package className={`h-12 w-12 text-${getCategoryColor(product.category)}-500`} />
+                          </div>
+                          
+                          {product.stock <= 5 && product.stock > 0 && (
+                            <div className="absolute top-2 right-2 bg-amber-500 text-white text-xs px-2 py-1 rounded-full">
+                              Low Stock: {product.stock}
+                            </div>
+                          )}
+                          
+                          {product.stock <= 0 && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                              <p className="text-white font-bold">OUT OF STOCK</p>
                             </div>
                           )}
                         </div>
                         <div className="p-2">
                           <h3 className="text-sm font-medium truncate">{product.name}</h3>
                           <p className="text-xs text-muted-foreground">{product.category}</p>
-                          <p className="text-sm font-semibold mt-1 text-primary">
-                            {formatCurrency(product.price)}
-                          </p>
+                          <div className="flex justify-between items-center mt-1">
+                            <p className="text-sm font-semibold text-primary">
+                              {formatCurrency(product.price)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Stock: {product.stock}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </SlideUpTransition>
@@ -591,5 +694,19 @@ const Cashier = () => {
     </div>
   );
 };
+
+// Helper to get color based on product category
+function getCategoryColor(category: string): string {
+  switch (category.toLowerCase()) {
+    case 'drinks':
+      return 'blue';
+    case 'food':
+      return 'green';
+    case 'dessert':
+      return 'purple';
+    default:
+      return 'gray';
+  }
+}
 
 export default Cashier;

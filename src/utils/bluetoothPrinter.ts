@@ -6,6 +6,7 @@ export interface BluetoothDevice {
   id: string;
   name: string;
   connected: boolean;
+  device?: any; // Web Bluetooth device
 }
 
 export interface PrintOptions {
@@ -39,34 +40,54 @@ class BluetoothPrinterService {
   private selectedDevice: BluetoothDevice | null = null;
   private isScanning = false;
 
-  // Mock function to simulate scanning for devices
   async scanForDevices(): Promise<BluetoothDevice[]> {
     if (this.isScanning) {
       return this.availableDevices;
     }
 
     this.isScanning = true;
-    
-    // Simulate device discovery
     console.log('Scanning for Bluetooth devices...');
     
     try {
-      // In a real implementation, this would use the Web Bluetooth API
-      // or a native plugin for actual device discovery
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (!navigator.bluetooth) {
+        throw new Error('Web Bluetooth API is not available in your browser');
+      }
       
-      // Mock devices for demonstration
-      this.availableDevices = [
-        { id: 'device1', name: 'Thermal Printer', connected: false },
-        { id: 'device2', name: 'ESC/POS Printer', connected: false },
-        { id: 'device3', name: 'Receipt Printer', connected: false }
-      ];
+      // Request device with print service
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [
+          { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }, // Common printer service
+          { services: ['e7810a71-73ae-499d-8c15-faa9aef0c3f2'] }, // ESC/POS service
+          { services: ['49535343-fe7d-4ae5-8fa9-9fafd205e455'] }, // Thermal printer service
+        ],
+        optionalServices: ['battery_service'],
+        acceptAllDevices: true // Fallback to show all devices
+      });
+      
+      console.log('Device selected:', device);
+      
+      // Create BluetoothDevice object
+      const bluetoothDevice: BluetoothDevice = {
+        id: device.id,
+        name: device.name || 'Unknown Device',
+        connected: false,
+        device: device
+      };
+      
+      // Add to available devices if not already present
+      if (!this.availableDevices.some(d => d.id === bluetoothDevice.id)) {
+        this.availableDevices.push(bluetoothDevice);
+      }
       
       console.log('Found devices:', this.availableDevices);
       return this.availableDevices;
     } catch (error) {
       console.error('Error scanning for devices:', error);
-      throw new Error('Failed to scan for devices');
+      // If user cancels the request, don't throw error
+      if (error.name === 'NotFoundError' || error.message.includes('User cancelled')) {
+        return this.availableDevices;
+      }
+      throw error;
     } finally {
       this.isScanning = false;
     }
@@ -81,8 +102,13 @@ class BluetoothPrinterService {
     }
     
     try {
-      // Simulate connection process
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!device.device || !device.device.gatt) {
+        throw new Error('Invalid device object');
+      }
+      
+      // Connect to the device
+      const server = await device.device.gatt.connect();
+      console.log('Connected to GATT server:', server);
       
       // Update device status
       device.connected = true;
@@ -92,12 +118,12 @@ class BluetoothPrinterService {
       return device;
     } catch (error) {
       console.error('Error connecting to device:', error);
-      throw new Error('Failed to connect to device');
+      throw error;
     }
   }
 
   async disconnectFromDevice(): Promise<void> {
-    if (!this.selectedDevice) {
+    if (!this.selectedDevice || !this.selectedDevice.device) {
       console.log('No device connected');
       return;
     }
@@ -105,8 +131,9 @@ class BluetoothPrinterService {
     console.log(`Disconnecting from device: ${this.selectedDevice.name}`);
     
     try {
-      // Simulate disconnection
-      await new Promise(resolve => setTimeout(resolve, 500));
+      if (this.selectedDevice.device.gatt.connected) {
+        this.selectedDevice.device.gatt.disconnect();
+      }
       
       this.selectedDevice.connected = false;
       this.selectedDevice = null;
@@ -114,12 +141,12 @@ class BluetoothPrinterService {
       console.log('Disconnected from device');
     } catch (error) {
       console.error('Error disconnecting from device:', error);
-      throw new Error('Failed to disconnect from device');
+      throw error;
     }
   }
 
   async printReceipt(options: PrintOptions): Promise<boolean> {
-    if (!this.selectedDevice) {
+    if (!this.selectedDevice || !this.selectedDevice.device) {
       throw new Error('No printer connected');
     }
     
@@ -127,20 +154,81 @@ class BluetoothPrinterService {
     
     console.log(`Printing receipt to ${this.selectedDevice.name}`);
     console.log('Receipt data:', receiptData);
-    console.log(`Number of copies: ${copies}`);
     
     try {
-      // Simulate printing process
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Get formatted receipt
+      const receiptText = this.formatReceiptData(receiptData);
       
-      // In a real implementation, this would format the data for the printer
-      // and send it via the Bluetooth connection
+      // Connect to the device if not connected
+      if (!this.selectedDevice.device.gatt.connected) {
+        await this.connectToDevice(this.selectedDevice.id);
+      }
+      
+      // Access printer service
+      const server = await this.selectedDevice.device.gatt.connect();
+      
+      // Note: The exact service and characteristic UUIDs will depend on your printer
+      // These are example UUIDs that might need to be adjusted
+      const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb')
+        .catch(() => server.getPrimaryService('e7810a71-73ae-499d-8c15-faa9aef0c3f2'))
+        .catch(() => server.getPrimaryService('49535343-fe7d-4ae5-8fa9-9fafd205e455'))
+        .catch(() => {
+          // If no printer service is found, try to get any available service
+          return server.getPrimaryServices().then(services => {
+            if (services.length === 0) throw new Error('No services found on the device');
+            return services[0];
+          });
+        });
+      
+      console.log('Got printer service:', service);
+      
+      // Get printer characteristic
+      const characteristics = await service.getCharacteristics();
+      console.log('Available characteristics:', characteristics);
+      
+      if (characteristics.length === 0) {
+        throw new Error('No characteristics found for the printer service');
+      }
+      
+      // Find a writable characteristic
+      const writeCharacteristic = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
+      
+      if (!writeCharacteristic) {
+        throw new Error('No writable characteristic found');
+      }
+      
+      console.log('Using characteristic:', writeCharacteristic);
+      
+      // Convert the text to bytes and print
+      const encoder = new TextEncoder();
+      const data = encoder.encode(receiptText);
+      
+      // Split the data into chunks (Bluetooth has max packet size)
+      const chunkSize = 512;
+      for (let i = 0; i < data.length; i += chunkSize) {
+        const chunk = data.slice(i, i + chunkSize);
+        await writeCharacteristic.writeValue(chunk);
+      }
+      
+      // Print multiple copies if needed
+      if (copies > 1) {
+        for (let i = 1; i < copies; i++) {
+          // Send form feed to start new page
+          await writeCharacteristic.writeValue(encoder.encode('\f'));
+          
+          // Print the receipt again
+          for (let j = 0; j < data.length; j += chunkSize) {
+            const chunk = data.slice(j, j + chunkSize);
+            await writeCharacteristic.writeValue(chunk);
+          }
+        }
+      }
       
       console.log('Receipt printed successfully');
       return true;
     } catch (error) {
       console.error('Error printing receipt:', error);
-      throw new Error('Failed to print receipt');
+      throw error;
     }
   }
 

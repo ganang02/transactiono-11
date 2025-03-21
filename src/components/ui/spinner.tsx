@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 interface SpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
   size?: 'sm' | 'md' | 'lg';
-  variant?: 'primary' | 'secondary' | 'success' | 'destructive';
+  variant?: 'primary' | 'secondary' | 'success' | 'destructive' | 'warning' | 'info';
 }
 
 export const Spinner: React.FC<SpinnerProps> = ({ 
@@ -25,6 +25,8 @@ export const Spinner: React.FC<SpinnerProps> = ({
     secondary: 'text-secondary',
     success: 'text-green-500',
     destructive: 'text-destructive',
+    warning: 'text-amber-500',
+    info: 'text-blue-500',
   };
 
   return (

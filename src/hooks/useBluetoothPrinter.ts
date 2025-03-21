@@ -19,7 +19,7 @@ export function useBluetoothPrinter() {
       console.error('Error scanning for devices:', error);
       toast({
         title: 'Scanning Failed',
-        description: 'Failed to scan for Bluetooth devices',
+        description: error.message || 'Failed to scan for Bluetooth devices',
         variant: 'destructive',
       });
     } finally {
@@ -40,7 +40,7 @@ export function useBluetoothPrinter() {
       console.error('Error connecting to device:', error);
       toast({
         title: 'Connection Failed',
-        description: 'Failed to connect to the selected device',
+        description: error.message || 'Failed to connect to the selected device',
         variant: 'destructive',
       });
     }
@@ -58,7 +58,7 @@ export function useBluetoothPrinter() {
       console.error('Error disconnecting from device:', error);
       toast({
         title: 'Disconnection Failed',
-        description: 'Failed to disconnect from the device',
+        description: error.message || 'Failed to disconnect from the device',
         variant: 'destructive',
       });
     }
@@ -77,7 +77,7 @@ export function useBluetoothPrinter() {
       console.error('Error printing receipt:', error);
       toast({
         title: 'Printing Failed',
-        description: 'Failed to print receipt',
+        description: error.message || 'Failed to print receipt',
         variant: 'destructive',
       });
       return false;

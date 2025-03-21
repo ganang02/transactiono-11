@@ -34,6 +34,14 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
     }
   }, [isOpen, scanForDevices]);
 
+  const handleScan = async () => {
+    try {
+      await scanForDevices();
+    } catch (error) {
+      console.error('Error scanning for devices:', error);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -56,7 +64,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={scanForDevices} 
+                onClick={handleScan} 
                 disabled={isScanning}
                 className="h-8"
               >
@@ -105,11 +113,16 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
               </div>
             ) : (
               <div className="py-8 text-center">
-                <Bluetooth className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                <p className="font-medium">No printers found</p>
-                <p className="text-sm text-muted-foreground">
-                  Make sure your printer is turned on and in pairing mode
-                </p>
+                <div className="flex flex-col items-center justify-center">
+                  <Bluetooth className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                  <p className="font-medium">No printers found</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Make sure your printer is turned on and in pairing mode
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                    Note: Web Bluetooth may require special permissions or may not be available in all browsers.
+                  </p>
+                </div>
               </div>
             )}
             
