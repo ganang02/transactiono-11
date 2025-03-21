@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,12 +12,18 @@ import {
   Search,
   Barcode,
   ShoppingCart,
-  X
+  X,
+  Package,
+  Bluetooth
 } from "lucide-react";
 import GlassCard from "@/components/ui-custom/GlassCard";
-import { products, formatCurrency } from "@/data/mockData";
+import BluetoothPrinterModal from "@/components/ui-custom/BluetoothPrinterModal";
+import { products, formatCurrency, storeInfo } from "@/data/mockData";
 import { SlideUpTransition } from "@/hooks/useTransition";
 import { toast } from "@/hooks/use-toast";
+import { useBluetoothPrinter } from "@/hooks/useBluetoothPrinter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Spinner } from "@/components/ui/spinner";
 
 interface CartItem {
   id: string;
@@ -26,19 +32,93 @@ interface CartItem {
   quantity: number;
 }
 
+// Simulated API functions for real-time data
+const fetchProducts = async () => {
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  return products;
+};
+
+const createTransaction = async (transactionData: any) => {
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  
+  const newTransactionId = `T${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+  
+  // In a real app, this would send data to a server
+  console.log('Creating transaction:', { id: newTransactionId, ...transactionData });
+  
+  return { 
+    id: newTransactionId,
+    date: new Date().toISOString(),
+    ...transactionData
+  };
+};
+
 const Cashier = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
   const [showPayment, setShowPayment] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [printReceipt, setPrintReceipt] = useState(true);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [showPrinterModal, setShowPrinterModal] = useState(false);
+  
+  const { 
+    selectedDevice: connectedPrinter,
+    printReceipt: printToBluetoothPrinter,
+    isPrinting
+  } = useBluetoothPrinter();
 
-  const filteredProducts = products.filter((product) => 
-    product.name.toLowerCase().includes(search.toLowerCase()) ||
-    product.barcode.includes(search)
-  );
+  // Fetch products data from API (simulated)
+  const { 
+    data: productsData, 
+    isLoading: isLoadingProducts,
+    error: productsError
+  } = useQuery({
+    queryKey: ['products'],
+    queryFn: fetchProducts,
+  });
+
+  // Create transaction mutation
+  const createTransactionMutation = useMutation({
+    mutationFn: createTransaction,
+    onSuccess: (data) => {
+      // Update cache and show success message
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      
+      toast({
+        title: "Transaction completed",
+        description: `Transaction #${data.id} successfully recorded`,
+      });
+      
+      // Print receipt if needed
+      if (printReceipt) {
+        handlePrintReceipt(data);
+      }
+      
+      // Reset state
+      setCart([]);
+      setShowPayment(false);
+      setPaymentAmount("");
+    },
+    onError: (error) => {
+      toast({
+        title: "Transaction failed",
+        description: "Failed to process transaction. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const filteredProducts = productsData 
+    ? productsData.filter((product) => 
+        product.name.toLowerCase().includes(search.toLowerCase()) ||
+        product.barcode.includes(search)
+      )
+    : [];
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
   const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -107,19 +187,66 @@ const Cashier = () => {
       return;
     }
     
-    // Process payment
-    toast({
-      title: "Payment successful",
-      description: `Transaction completed with ${method} payment`,
-    });
+    // Prepare transaction data
+    const transactionData = {
+      items: cart.map(item => ({
+        productId: item.id,
+        productName: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        subtotal: item.price * item.quantity
+      })),
+      subtotal,
+      tax,
+      total,
+      paymentMethod: method,
+      status: 'completed',
+      receipt: printReceipt
+    };
     
-    // Reset state
-    setCart([]);
-    setShowPayment(false);
-    setPaymentAmount("");
+    // Add cash-specific details
+    if (method === 'cash') {
+      transactionData.amountPaid = parseInt(paymentAmount.replace(/[^0-9]/g, ""));
+      transactionData.change = change;
+    }
     
-    // Navigate to transactions or stay on cashier
-    // navigate('/transactions');
+    // Process transaction
+    createTransactionMutation.mutate(transactionData);
+  };
+
+  const handlePrintReceipt = async (transactionData: any) => {
+    if (!connectedPrinter) {
+      toast({
+        title: "Printer not connected",
+        description: "Please connect to a printer first",
+        variant: "destructive",
+      });
+      setShowPrinterModal(true);
+      return;
+    }
+    
+    const receiptData = {
+      storeName: storeInfo.name,
+      storeAddress: storeInfo.address,
+      storeWhatsapp: storeInfo.whatsapp,
+      transactionId: transactionData.id,
+      date: new Date().toLocaleString('id-ID'),
+      items: transactionData.items.map(item => ({
+        name: item.productName,
+        quantity: item.quantity,
+        price: item.price,
+        subtotal: item.subtotal
+      })),
+      subtotal: transactionData.subtotal,
+      tax: transactionData.tax,
+      total: transactionData.total,
+      paymentMethod: transactionData.paymentMethod === 'cash' ? 'Cash' : 'Card',
+      amountPaid: transactionData.amountPaid,
+      change: transactionData.change,
+      notes: storeInfo.notes
+    };
+    
+    await printToBluetoothPrinter(receiptData);
   };
 
   return (
@@ -147,48 +274,63 @@ const Cashier = () => {
           </div>
 
           <GlassCard className="p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {filteredProducts.length > 0 ? (
-                filteredProducts.map((product) => (
-                  <SlideUpTransition key={product.id} show={true}>
-                    <div
-                      className="cursor-pointer overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
-                      onClick={() => addToCart(product)}
-                    >
-                      <div className="aspect-square bg-muted relative overflow-hidden">
-                        {product.image ? (
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="object-cover w-full h-full"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center h-full bg-muted">
-                            <Package className="h-8 w-8 text-muted-foreground" />
-                          </div>
-                        )}
+            {isLoadingProducts ? (
+              <div className="py-12 flex flex-col items-center justify-center">
+                <Spinner className="h-8 w-8 mb-4" />
+                <p className="font-medium">Loading products...</p>
+              </div>
+            ) : productsError ? (
+              <div className="py-12 flex flex-col items-center justify-center text-center">
+                <X className="h-8 w-8 text-destructive mb-2" />
+                <h3 className="font-medium">Failed to load products</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Please check your connection and try again
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {filteredProducts.length > 0 ? (
+                  filteredProducts.map((product) => (
+                    <SlideUpTransition key={product.id} show={true}>
+                      <div
+                        className="cursor-pointer overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+                        onClick={() => addToCart(product)}
+                      >
+                        <div className="aspect-square bg-muted relative overflow-hidden">
+                          {product.image ? (
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              className="object-cover w-full h-full"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full bg-muted">
+                              <Package className="h-8 w-8 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2">
+                          <h3 className="text-sm font-medium truncate">{product.name}</h3>
+                          <p className="text-xs text-muted-foreground">{product.category}</p>
+                          <p className="text-sm font-semibold mt-1 text-primary">
+                            {formatCurrency(product.price)}
+                          </p>
+                        </div>
                       </div>
-                      <div className="p-2">
-                        <h3 className="text-sm font-medium truncate">{product.name}</h3>
-                        <p className="text-xs text-muted-foreground">{product.category}</p>
-                        <p className="text-sm font-semibold mt-1 text-primary">
-                          {formatCurrency(product.price)}
-                        </p>
-                      </div>
-                    </div>
-                  </SlideUpTransition>
-                ))
-              ) : (
-                <div className="col-span-full flex flex-col items-center justify-center py-8 text-center">
-                  <Search className="h-8 w-8 text-muted-foreground mb-2" />
-                  <h3 className="font-medium">No products found</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Try a different search term or scan a barcode
-                  </p>
-                </div>
-              )}
-            </div>
+                    </SlideUpTransition>
+                  ))
+                ) : (
+                  <div className="col-span-full flex flex-col items-center justify-center py-8 text-center">
+                    <Search className="h-8 w-8 text-muted-foreground mb-2" />
+                    <h3 className="font-medium">No products found</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Try a different search term or scan a barcode
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </GlassCard>
         </div>
 
@@ -263,8 +405,19 @@ const Cashier = () => {
                     </div>
                   </div>
 
-                  <Button className="w-full" onClick={handleCheckout}>
-                    Checkout
+                  <Button 
+                    className="w-full" 
+                    onClick={handleCheckout}
+                    disabled={createTransactionMutation.isPending}
+                  >
+                    {createTransactionMutation.isPending ? (
+                      <>
+                        <Spinner className="mr-2 h-4 w-4" />
+                        Processing...
+                      </>
+                    ) : (
+                      "Checkout"
+                    )}
                   </Button>
                 </div>
               </>
@@ -278,6 +431,16 @@ const Cashier = () => {
               </div>
             )}
           </GlassCard>
+          
+          {/* Printer connection status */}
+          <Button 
+            variant="outline" 
+            className="w-full gap-2"
+            onClick={() => setShowPrinterModal(true)}
+          >
+            <Bluetooth className="h-4 w-4" />
+            {connectedPrinter ? `Connected to ${connectedPrinter.name}` : "Connect to Printer"}
+          </Button>
         </div>
       </div>
 
@@ -333,15 +496,30 @@ const Cashier = () => {
                       </div>
                     )}
                     
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-2">
                       <input
                         type="checkbox"
                         id="print-receipt"
                         checked={printReceipt}
                         onChange={(e) => setPrintReceipt(e.target.checked)}
-                        className="mr-2"
+                        className="mr-1"
                       />
-                      <label htmlFor="print-receipt" className="text-sm">Print receipt</label>
+                      <label htmlFor="print-receipt" className="text-sm flex items-center gap-1">
+                        <Printer className="h-3 w-3" />
+                        Print receipt
+                      </label>
+                      
+                      {printReceipt && !connectedPrinter && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="ml-auto h-7 px-2 text-xs"
+                          onClick={() => setShowPrinterModal(true)}
+                        >
+                          <Bluetooth className="h-3 w-3 mr-1" />
+                          Connect
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -351,6 +529,7 @@ const Cashier = () => {
                     variant="outline" 
                     className="w-full"
                     onClick={() => handlePayment('cash')}
+                    disabled={createTransactionMutation.isPending || (printReceipt && !connectedPrinter)}
                   >
                     <DollarSign className="mr-2 h-4 w-4" />
                     Cash
@@ -358,16 +537,37 @@ const Cashier = () => {
                   <Button 
                     className="w-full"
                     onClick={() => handlePayment('card')}
+                    disabled={createTransactionMutation.isPending || (printReceipt && !connectedPrinter)}
                   >
                     <CreditCard className="mr-2 h-4 w-4" />
                     Card
                   </Button>
                 </div>
+                
+                {printReceipt && !connectedPrinter && (
+                  <p className="text-xs text-amber-500 mt-2 text-center">
+                    Please connect to a printer first or disable receipt printing
+                  </p>
+                )}
+                
+                {createTransactionMutation.isPending && (
+                  <div className="mt-4 flex justify-center">
+                    <Spinner className="h-5 w-5 mr-2" />
+                    <span className="text-sm">Processing transaction...</span>
+                  </div>
+                )}
               </div>
             </GlassCard>
           </SlideUpTransition>
         </div>
       )}
+      
+      {/* Bluetooth Printer Modal */}
+      <BluetoothPrinterModal 
+        isOpen={showPrinterModal}
+        onClose={() => setShowPrinterModal(false)}
+        onPrinterSelected={() => setShowPrinterModal(false)}
+      />
     </div>
   );
 };
