@@ -30,12 +30,12 @@ export class BluetoothLeService {
 
   public async initialize(): Promise<boolean> {
     try {
-      const { value } = await BluetoothLe.initialize({
+      const result = await BluetoothLe.initialize({
         androidNeverForLocation: false,
       });
       
-      console.log('Bluetooth LE initialized:', value);
-      return value;
+      console.log('Bluetooth LE initialized:', result);
+      return true;
     } catch (error) {
       console.error('Failed to initialize Bluetooth LE:', error);
       throw error;
@@ -49,7 +49,7 @@ export class BluetoothLeService {
     
     try {
       const result = await BluetoothLe.requestLEScan();
-      return result.granted === true;
+      return true; // If no error is thrown, we assume permissions are granted
     } catch (error) {
       console.error('Error requesting Bluetooth permissions:', error);
       return false;
@@ -62,7 +62,7 @@ export class BluetoothLeService {
     }
     
     try {
-      await BluetoothLe.startScan({
+      await BluetoothLe.startLEScan({
         services: [], // Scan for all services
         allowDuplicates: false,
         scanMode: 'lowLatency',
@@ -81,7 +81,7 @@ export class BluetoothLeService {
     }
     
     try {
-      await BluetoothLe.stopScan();
+      await BluetoothLe.stopLEScan();
       console.log('Bluetooth LE scan stopped');
     } catch (error) {
       console.error('Error stopping Bluetooth LE scan:', error);
@@ -91,13 +91,11 @@ export class BluetoothLeService {
 
   public async getDevices(): Promise<BluetoothLeDevice[]> {
     try {
-      const { devices } = await BluetoothLe.getDevices();
+      const result = await BluetoothLe.getConnectedDevices({ services: [] });
       
-      return devices.map(device => ({
+      return result.devices.map(device => ({
         deviceId: device.deviceId,
         name: device.name || 'Unknown Device',
-        rssi: device.rssi,
-        services: device.services,
         isPaired: true
       }));
     } catch (error) {
@@ -108,14 +106,15 @@ export class BluetoothLeService {
 
   public async connectToDevice(deviceId: string): Promise<void> {
     try {
-      const { device } = await BluetoothLe.connect({
+      await BluetoothLe.connect({
         deviceId,
         timeout: 10000
       });
       
-      this.currentDevice = device;
+      // Since the connect method doesn't return the device, we create a simple representation
+      this.currentDevice = { deviceId, name: 'Connected Device' };
       this.isConnected = true;
-      console.log('Connected to device:', device);
+      console.log('Connected to device:', deviceId);
     } catch (error) {
       this.isConnected = false;
       this.currentDevice = null;
@@ -141,11 +140,11 @@ export class BluetoothLeService {
 
   public async discover(deviceId: string): Promise<BleService[]> {
     try {
-      const { services } = await BluetoothLe.discover({
+      const result = await BluetoothLe.getServices({
         deviceId,
       });
       
-      return services;
+      return result.services;
     } catch (error) {
       console.error('Error discovering services:', error);
       throw error;
@@ -154,12 +153,12 @@ export class BluetoothLeService {
 
   public async getCharacteristics(deviceId: string, serviceUUID: string): Promise<BleCharacteristic[]> {
     try {
-      const { characteristics } = await BluetoothLe.getCharacteristics({
+      const result = await BluetoothLe.getCharacteristics({
         deviceId,
         service: serviceUUID,
       });
       
-      return characteristics;
+      return result.characteristics;
     } catch (error) {
       console.error('Error getting characteristics:', error);
       throw error;
@@ -183,10 +182,10 @@ export class BluetoothLeService {
   }
 
   public listenToCharacteristic(deviceId: string, serviceUUID: string, characteristicUUID: string, callback: (data: any) => void) {
-    BluetoothLe.addListener(`${deviceId}:${serviceUUID}:${characteristicUUID}`, callback);
+    const handler = BluetoothLe.addListener(`characteristicChanged`, callback);
     
     return () => {
-      BluetoothLe.removeAllListeners(`${deviceId}:${serviceUUID}:${characteristicUUID}`);
+      handler.remove();
     };
   }
 
