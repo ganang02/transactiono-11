@@ -25,6 +25,7 @@ import { ProductsAPI } from "@/api/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DateRangePicker } from "@/components/ui-custom/DateRangePicker";
 import { addDays, format, isWithinInterval, parseISO } from "date-fns";
+import { DateRange } from "react-day-picker";
 import {
   Select,
   SelectContent,
@@ -36,20 +37,26 @@ import ProductFilters from "@/components/products/ProductFilters";
 import ExportProductsModal from "@/components/products/ExportProductsModal";
 import { EditProductModal } from "@/components/products/EditProductModal";
 
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  category: string;
+  createdAt?: string;
+}
+
 const Products = () => {
   const [search, setSearch] = useState("");
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showEditProduct, setShowEditProduct] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showExport, setShowExport] = useState(false);
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [editingProduct, setEditingProduct] = useState(null);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [sortField, setSortField] = useState<"name" | "price" | "stock" | null>(null);
-  const [dateRange, setDateRange] = useState({
-    from: null,
-    to: null,
-  });
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [stockFilter, setStockFilter] = useState<"all" | "low" | "out">("all");
   
@@ -64,7 +71,7 @@ const Products = () => {
   const queryClient = useQueryClient();
 
   // Fetch products from API
-  const { data: products = [], isLoading, isError } = useQuery({
+  const { data: products = [], isLoading, isError } = useQuery<Product[]>({
     queryKey: ['products'],
     queryFn: ProductsAPI.getAll
   });
@@ -81,7 +88,7 @@ const Products = () => {
       setShowAddProduct(false);
       resetForm();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Gagal menambahkan produk",
         description: error.message || "Terjadi kesalahan saat menambahkan produk",
@@ -92,7 +99,7 @@ const Products = () => {
 
   // Update product mutation
   const updateProductMutation = useMutation({
-    mutationFn: (data) => ProductsAPI.update(data.id, data),
+    mutationFn: (data: Product) => ProductsAPI.update(data.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast({
@@ -101,7 +108,7 @@ const Products = () => {
       });
       setShowEditProduct(false);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Gagal memperbarui produk",
         description: error.message || "Terjadi kesalahan saat memperbarui produk",
@@ -120,7 +127,7 @@ const Products = () => {
         description: "Produk berhasil dihapus",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Gagal menghapus produk",
         description: error.message || "Terjadi kesalahan saat menghapus produk",
@@ -170,7 +177,7 @@ const Products = () => {
       }
 
       // Apply date range filter if available
-      if (dateRange.from && dateRange.to) {
+      if (dateRange?.from && dateRange?.to) {
         filtered = filtered.filter(product => {
           // Assuming product has a createdAt field
           if (product.createdAt) {
@@ -248,12 +255,12 @@ const Products = () => {
     createProductMutation.mutate(productToCreate);
   };
 
-  const handleEditProduct = (product) => {
+  const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
     setShowEditProduct(true);
   };
 
-  const handleUpdateProduct = (updatedProduct) => {
+  const handleUpdateProduct = (updatedProduct: Product) => {
     updateProductMutation.mutate(updatedProduct);
   };
 
@@ -274,7 +281,7 @@ const Products = () => {
     });
   };
 
-  const handleDeleteProduct = (productId) => {
+  const handleDeleteProduct = (productId: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus produk ini?")) {
       deleteProductMutation.mutate(productId);
     }
@@ -283,7 +290,7 @@ const Products = () => {
   // Get unique categories for filter
   const categories = React.useMemo(() => {
     if (!products) return [];
-    return Array.from(new Set(products.map(product => product.category))).filter(Boolean);
+    return Array.from(new Set(products.map(product => product.category))).filter(Boolean) as string[];
   }, [products]);
 
   if (isError) {
