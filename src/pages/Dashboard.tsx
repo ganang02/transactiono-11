@@ -30,18 +30,20 @@ const Dashboard = () => {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   
-  // Fetch dashboard data from API with error handling
+  // Updated useQuery to use onSettled instead of onError as per v5 of react-query
   const { data: dashboardData, isLoading, isRefetching, isError } = useQuery({
     queryKey: ['dashboard', selected],
     queryFn: () => DashboardAPI.getData(),
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
-    onError: () => {
-      toast({
-        title: "Unable to load dashboard data",
-        description: "Using mock data for preview",
-        variant: "default",
-      });
+    onSettled: (data, error) => {
+      if (error) {
+        toast({
+          title: "Unable to load dashboard data",
+          description: "Using mock data for preview",
+          variant: "default",
+        });
+      }
     }
   });
 
