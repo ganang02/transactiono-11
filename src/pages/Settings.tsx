@@ -10,7 +10,12 @@ import {
   Info, 
   LogOut,
   Check,
-  ChevronRight
+  ChevronRight,
+  Smartphone,
+  Moon,
+  Sun,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -29,7 +34,7 @@ const Settings = () => {
   const [showPrinterModal, setShowPrinterModal] = useState(false);
   const { selectedDevice } = useBluetoothPrinter();
   
-  // App settings with localStorage persistence - fixed the type issue by making useState accept boolean rather than initializing with true
+  // App settings with localStorage persistence - fixing type issues
   const [notifications, setNotifications] = useState<boolean>(() => {
     return localStorage.getItem(`${SETTINGS_STORAGE_KEY}-notifications`) === 'true' || true;
   });
@@ -104,45 +109,58 @@ const Settings = () => {
 
   return (
     <div className="container px-4 mx-auto max-w-4xl pb-8 animate-fade-in">
-      <div className="grid grid-cols-1 gap-6 mt-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold flex items-center">
+          <SettingsIcon className="h-6 w-6 mr-2 text-primary" />
+          Pengaturan Aplikasi
+        </h1>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
         <SlideUpTransition show={true} duration={300}>
-          <GlassCard className="overflow-hidden">
-            <div className="p-4 border-b">
+          <GlassCard className="overflow-hidden transition-all hover:shadow-md">
+            <div className="p-4 border-b bg-primary/10">
               <div className="flex items-center">
                 <Bell className="h-5 w-5 mr-2 text-primary" />
-                <h2 className="font-medium">Notifications</h2>
+                <h2 className="font-medium">Notifikasi</h2>
               </div>
             </div>
             
-            <div className="p-4 space-y-4">
+            <div className="p-5 space-y-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Enable Notifications</p>
-                  <p className="text-sm text-muted-foreground">Receive alerts for important events</p>
+                <div className="flex items-start gap-3">
+                  <Bell className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-medium">Aktifkan Notifikasi</p>
+                    <p className="text-sm text-muted-foreground">Terima pemberitahuan tentang transaksi dan aktivitas penting</p>
+                  </div>
                 </div>
                 <Switch 
                   checked={notifications} 
                   onCheckedChange={(checked) => {
                     setNotifications(checked);
                     toast({
-                      title: checked ? "Notifications enabled" : "Notifications disabled",
-                      description: checked ? "You will now receive notifications" : "You will no longer receive notifications"
+                      title: checked ? "Notifikasi diaktifkan" : "Notifikasi dinonaktifkan",
+                      description: checked ? "Anda akan menerima notifikasi" : "Anda tidak akan menerima notifikasi"
                     });
                   }}
                 />
               </div>
               
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Sound Effects</p>
-                  <p className="text-sm text-muted-foreground">Play sound when completing a transaction</p>
+                <div className="flex items-start gap-3">
+                  {sound ? <Volume2 className="h-5 w-5 text-primary mt-0.5" /> : <VolumeX className="h-5 w-5 text-primary mt-0.5" />}
+                  <div>
+                    <p className="font-medium">Efek Suara</p>
+                    <p className="text-sm text-muted-foreground">Putar suara saat menyelesaikan transaksi</p>
+                  </div>
                 </div>
                 <Switch 
                   checked={sound} 
                   onCheckedChange={(checked) => {
                     setSound(checked);
                     toast({
-                      title: checked ? "Sound effects enabled" : "Sound effects disabled"
+                      title: checked ? "Efek suara diaktifkan" : "Efek suara dinonaktifkan"
                     });
                   }}
                 />
@@ -152,33 +170,43 @@ const Settings = () => {
         </SlideUpTransition>
         
         <SlideUpTransition show={true} duration={400}>
-          <GlassCard className="overflow-hidden">
-            <div className="p-4 border-b">
+          <GlassCard className="overflow-hidden transition-all hover:shadow-md">
+            <div className="p-4 border-b bg-primary/10">
               <div className="flex items-center">
                 <Printer className="h-5 w-5 mr-2 text-primary" />
-                <h2 className="font-medium">Printing</h2>
+                <h2 className="font-medium">Printer</h2>
               </div>
             </div>
             
-            <div className="p-4 space-y-4">
+            <div className="p-5 space-y-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Auto-print Receipt</p>
-                  <p className="text-sm text-muted-foreground">Automatically print receipt after each transaction</p>
+                <div className="flex items-start gap-3">
+                  <Printer className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-medium">Cetak Struk Otomatis</p>
+                    <p className="text-sm text-muted-foreground">Otomatis cetak struk setelah setiap transaksi</p>
+                  </div>
                 </div>
                 <Switch 
                   checked={printReceipt} 
                   onCheckedChange={(checked) => {
                     setPrintReceipt(checked);
                     toast({
-                      title: checked ? "Auto-print enabled" : "Auto-print disabled"
+                      title: checked ? "Cetak otomatis diaktifkan" : "Cetak otomatis dinonaktifkan"
                     });
                   }}
                 />
               </div>
               
-              <Button variant="outline" className="w-full justify-between" onClick={openPrinterConfig}>
-                <span>Configure Printer {selectedDevice && `(${selectedDevice.name})`}</span>
+              <Button 
+                variant="outline" 
+                className="w-full justify-between hover:bg-primary/5 border-primary/20" 
+                onClick={openPrinterConfig}
+              >
+                <div className="flex items-center">
+                  <Printer className="h-4 w-4 mr-2 text-primary" />
+                  <span>Konfigurasi Printer {selectedDevice && `(${selectedDevice.name})`}</span>
+                </div>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
@@ -186,33 +214,39 @@ const Settings = () => {
         </SlideUpTransition>
         
         <SlideUpTransition show={true} duration={500}>
-          <GlassCard className="overflow-hidden">
-            <div className="p-4 border-b">
+          <GlassCard className="overflow-hidden transition-all hover:shadow-md">
+            <div className="p-4 border-b bg-primary/10">
               <div className="flex items-center">
-                <SettingsIcon className="h-5 w-5 mr-2 text-primary" />
-                <h2 className="font-medium">Appearance</h2>
+                <Smartphone className="h-5 w-5 mr-2 text-primary" />
+                <h2 className="font-medium">Tampilan</h2>
               </div>
             </div>
             
-            <div className="p-4 space-y-4">
+            <div className="p-5 space-y-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Dark Mode</p>
-                  <p className="text-sm text-muted-foreground">Use dark theme for the application</p>
+                <div className="flex items-start gap-3">
+                  {darkMode ? <Moon className="h-5 w-5 text-primary mt-0.5" /> : <Sun className="h-5 w-5 text-primary mt-0.5" />}
+                  <div>
+                    <p className="font-medium">Mode Gelap</p>
+                    <p className="text-sm text-muted-foreground">Gunakan tema gelap untuk aplikasi</p>
+                  </div>
                 </div>
                 <Switch 
                   checked={darkMode} 
                   onCheckedChange={(checked) => {
                     setDarkMode(checked);
                     toast({
-                      title: checked ? "Dark mode enabled" : "Light mode enabled"
+                      title: checked ? "Mode gelap diaktifkan" : "Mode terang diaktifkan"
                     });
                   }}
                 />
               </div>
               
-              <div>
-                <p className="font-medium mb-2">Language</p>
+              <div className="space-y-2">
+                <p className="font-medium flex items-center gap-2">
+                  <Languages className="h-4 w-4 text-primary" />
+                  Bahasa
+                </p>
                 <div className="grid grid-cols-2 gap-2">
                   <Button 
                     variant={language === "en" ? "default" : "outline"}
@@ -250,45 +284,47 @@ const Settings = () => {
         </SlideUpTransition>
         
         <SlideUpTransition show={true} duration={600}>
-          <GlassCard className="overflow-hidden">
-            <div className="p-4 border-b">
+          <GlassCard className="overflow-hidden transition-all hover:shadow-md">
+            <div className="p-4 border-b bg-primary/10">
               <div className="flex items-center">
                 <HelpCircle className="h-5 w-5 mr-2 text-primary" />
-                <h2 className="font-medium">Help & Support</h2>
+                <h2 className="font-medium">Bantuan & Dukungan</h2>
               </div>
             </div>
             
-            <div className="p-4 space-y-2">
-              <Button variant="outline" className="w-full justify-between">
+            <div className="p-5 space-y-3">
+              <Button variant="outline" className="w-full justify-between hover:bg-primary/5 border-primary/20">
                 <div className="flex items-center">
-                  <Info className="h-4 w-4 mr-2" />
-                  <span>User Guide</span>
+                  <Info className="h-4 w-4 mr-2 text-primary" />
+                  <span>Panduan Pengguna</span>
                 </div>
                 <ChevronRight className="h-4 w-4" />
               </Button>
               
-              <Button variant="outline" className="w-full justify-between">
+              <Button variant="outline" className="w-full justify-between hover:bg-primary/5 border-primary/20">
                 <div className="flex items-center">
-                  <HelpCircle className="h-4 w-4 mr-2" />
-                  <span>Contact Support</span>
+                  <HelpCircle className="h-4 w-4 mr-2 text-primary" />
+                  <span>Hubungi Dukungan</span>
                 </div>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </GlassCard>
         </SlideUpTransition>
-        
-        <SlideUpTransition show={true} duration={700}>
+      </div>
+      
+      <SlideUpTransition show={true} duration={700}>
+        <div className="mt-8 flex justify-center">
           <Button 
             variant="destructive" 
-            className="gap-2 mt-2"
+            className="gap-2 px-6 py-5 text-lg font-medium rounded-full"
             onClick={handleLogout}
           >
-            <LogOut className="h-4 w-4" />
-            Logout
+            <LogOut className="h-5 w-5" />
+            Keluar
           </Button>
-        </SlideUpTransition>
-      </div>
+        </div>
+      </SlideUpTransition>
 
       <BluetoothPrinterModal 
         isOpen={showPrinterModal}
