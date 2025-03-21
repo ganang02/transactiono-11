@@ -112,6 +112,26 @@
   .text-balance {
     text-wrap: balance;
   }
+  
+  .mobile-container {
+    @apply px-2 py-2 mx-auto;
+  }
+  
+  .mobile-padding {
+    @apply p-2 sm:p-4;
+  }
+  
+  .mobile-gap {
+    @apply gap-2 sm:gap-4;
+  }
+  
+  .mobile-text {
+    @apply text-sm sm:text-base;
+  }
+  
+  .mobile-heading {
+    @apply text-base sm:text-lg md:text-xl;
+  }
 }
 
 /* Animations */
@@ -154,4 +174,36 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  /* Card adjustments for mobile */
+  .card, 
+  .glass-card {
+    border-radius: var(--radius) !important;
+  }
+  
+  /* Adjust form inputs for mobile */
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+  }
+  
+  /* Better spacing for small screens */
+  .grid {
+    gap: 0.75rem !important;
+  }
+}
+
+/* Fix App.css */
+#root {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
 }

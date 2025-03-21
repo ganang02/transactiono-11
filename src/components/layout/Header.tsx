@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { SlideUpTransition } from "@/hooks/useTransition";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -26,6 +27,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
   const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const isMobile = useIsMobile();
 
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -89,8 +91,8 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
 
   return (
     <header className="sticky top-0 z-40 w-full backdrop-blur-sm bg-background/70 border-b">
-      <div className="container px-4 sm:px-6 flex h-16 items-center justify-between">
-        <div className="flex gap-4 items-center">
+      <div className="container px-2 sm:px-6 flex h-14 md:h-16 items-center justify-between">
+        <div className="flex gap-2 md:gap-4 items-center">
           <Button 
             variant="ghost" 
             size="icon" 
@@ -102,13 +104,13 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
           
           <div className="flex items-center gap-2 animate-slide-down">
             {getPageIcon()}
-            <h1 className="text-lg font-medium">{getPageTitle()}</h1>
+            <h1 className={cn("font-medium", isMobile ? "text-base" : "text-lg")}>{getPageTitle()}</h1>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <SlideUpTransition show={searchOpen} className="relative">
-            <form onSubmit={handleSearch} className="absolute right-0 top-0 w-64 h-10">
+            <form onSubmit={handleSearch} className={cn("absolute right-0 top-0", isMobile ? "w-52" : "w-64", "h-10")}>
               <div className="w-full h-full bg-white dark:bg-black rounded-md border shadow-sm flex items-center px-3">
                 <Search className="h-4 w-4 text-muted-foreground mr-2" />
                 <input 

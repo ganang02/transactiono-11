@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SlideUpTransition } from "@/hooks/useTransition";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface NavigationProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ interface NavigationProps {
 
 const Navigation: React.FC<NavigationProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
+  const isMobile = useIsMobile();
   
   const navigationItems = [
     {
@@ -76,12 +78,13 @@ const Navigation: React.FC<NavigationProps> = ({ isOpen, onClose }) => {
       {/* Sidebar */}
       <aside 
         className={cn(
-          "fixed left-0 top-0 z-40 h-screen w-64 border-r bg-sidebar backdrop-blur-sm transition-transform duration-300 ease-in-out md:translate-x-0",
+          "fixed left-0 top-0 z-40 h-screen border-r bg-sidebar backdrop-blur-sm transition-transform duration-300 ease-in-out md:translate-x-0",
+          isMobile ? "w-[85vw] max-w-[280px]" : "w-64",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex h-16 items-center border-b px-6">
-          <h2 className="text-lg font-semibold tracking-tight">Cashier App</h2>
+        <div className="flex h-14 md:h-16 items-center border-b px-6">
+          <h2 className="text-base md:text-lg font-semibold tracking-tight">Cashier App</h2>
         </div>
         
         <div className="flex flex-col space-y-1 p-2">
@@ -94,13 +97,13 @@ const Navigation: React.FC<NavigationProps> = ({ isOpen, onClose }) => {
               <NavLink
                 to={item.path}
                 onClick={() => {
-                  if (window.innerWidth < 768) {
+                  if (isMobile) {
                     onClose();
                   }
                 }}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 group",
+                    "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 group",
                     isActive 
                       ? "bg-sidebar-accent text-primary" 
                       : "text-sidebar-foreground hover:bg-sidebar-accent/50"

@@ -11,14 +11,32 @@ import Transactions from "./pages/Transactions";
 import Store from "./pages/Store";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "./components/layout/Header";
 import Navigation from "./components/layout/Navigation";
+import { useIsMobile } from "./hooks/use-mobile";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const isMobile = useIsMobile();
+
+  // Close sidebar when navigating on mobile
+  useEffect(() => {
+    if (isMobile && isSidebarOpen) {
+      const handleRouteChange = () => setIsSidebarOpen(false);
+      window.addEventListener('popstate', handleRouteChange);
+      return () => window.removeEventListener('popstate', handleRouteChange);
+    }
+  }, [isMobile, isSidebarOpen]);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -36,7 +54,7 @@ const App = () => {
             <div className="flex-1 overflow-auto">
               <Header toggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
               
-              <main className="min-h-[calc(100vh-4rem)]">
+              <main className="min-h-[calc(100vh-3.5rem)]">
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/cashier" element={<Cashier />} />
