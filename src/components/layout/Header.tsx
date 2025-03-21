@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -24,7 +24,8 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -64,6 +65,19 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
     }
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Handle search based on current page
+    if (location.pathname === "/products" || location.pathname === "/transactions") {
+      // Dispatch a custom event that the page components will listen for
+      const searchEvent = new CustomEvent('app-search', { detail: searchQuery });
+      window.dispatchEvent(searchEvent);
+      
+      setSearchOpen(false);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 w-full backdrop-blur-sm bg-background/70 border-b">
       <div className="container px-4 sm:px-6 flex h-16 items-center justify-between">
@@ -85,23 +99,28 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
 
         <div className="flex items-center gap-2">
           <SlideUpTransition show={searchOpen} className="relative">
-            <div className="absolute right-0 top-0 w-64 h-10 bg-white dark:bg-black rounded-md border shadow-sm flex items-center px-3">
-              <Search className="h-4 w-4 text-muted-foreground mr-2" />
-              <input 
-                type="text" 
-                placeholder="Search..." 
-                className="flex-1 bg-transparent border-none focus:outline-none text-sm"
-                autoFocus
-              />
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-6 w-6" 
-                onClick={() => setSearchOpen(false)}
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+            <form onSubmit={handleSearch} className="absolute right-0 top-0 w-64 h-10">
+              <div className="w-full h-full bg-white dark:bg-black rounded-md border shadow-sm flex items-center px-3">
+                <Search className="h-4 w-4 text-muted-foreground mr-2" />
+                <input 
+                  type="text" 
+                  placeholder="Search..." 
+                  className="flex-1 bg-transparent border-none focus:outline-none text-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                />
+                <Button 
+                  type="button"
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6" 
+                  onClick={() => setSearchOpen(false)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </form>
           </SlideUpTransition>
           
           {!searchOpen && (

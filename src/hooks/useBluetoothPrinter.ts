@@ -8,15 +8,20 @@ export function useBluetoothPrinter() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [devices, setDevices] = useState<BluetoothDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<BluetoothDevice | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   // Load saved device from localStorage on initial render
   useEffect(() => {
     const savedDevice = localStorage.getItem('bluetooth-printer');
     if (savedDevice) {
       try {
-        setSelectedDevice(JSON.parse(savedDevice));
+        const parsedDevice = JSON.parse(savedDevice);
+        setSelectedDevice(parsedDevice);
+        console.log('Restored saved device from storage:', parsedDevice);
       } catch (e) {
         console.error('Error loading saved printer:', e);
+        // Remove invalid data
+        localStorage.removeItem('bluetooth-printer');
       }
     }
   }, []);
@@ -25,10 +30,33 @@ export function useBluetoothPrinter() {
     try {
       setIsScanning(true);
       console.log('Starting device scan...');
-      const foundDevices = await bluetoothPrinter.scanForDevices();
-      console.log('Found devices:', foundDevices);
-      setDevices(foundDevices);
-      return foundDevices;
+      let foundDevices = [];
+      
+      // Try to get any previously paired devices first if available
+      try {
+        const pairedDevices = await bluetoothPrinter.getPairedDevices();
+        if (pairedDevices && pairedDevices.length > 0) {
+          console.log('Found paired devices:', pairedDevices);
+          foundDevices = [...pairedDevices];
+        }
+      } catch (err) {
+        console.log('No paired devices or not supported:', err);
+      }
+      
+      // Then scan for new devices
+      const scannedDevices = await bluetoothPrinter.scanForDevices();
+      console.log('Found devices from scan:', scannedDevices);
+      
+      // Combine and deduplicate devices
+      const allDevices = [...foundDevices];
+      scannedDevices.forEach(device => {
+        if (!allDevices.some(d => d.id === device.id)) {
+          allDevices.push(device);
+        }
+      });
+      
+      setDevices(allDevices);
+      return allDevices;
     } catch (error: any) {
       console.error('Error scanning for devices:', error);
       toast({
@@ -44,8 +72,16 @@ export function useBluetoothPrinter() {
 
   const connectToDevice = useCallback(async (deviceId: string) => {
     try {
+      setIsConnecting(true);
       console.log('Connecting to device:', deviceId);
       const connectedDevice = await bluetoothPrinter.connectToDevice(deviceId);
+      
+      // Save to localStorage
+      localStorage.setItem('bluetooth-printer', JSON.stringify({
+        id: connectedDevice.id,
+        name: connectedDevice.name
+      }));
+      
       setSelectedDevice(connectedDevice);
       toast({
         title: 'Connected',
@@ -60,6 +96,8 @@ export function useBluetoothPrinter() {
         variant: 'destructive',
       });
       throw error;
+    } finally {
+      setIsConnecting(false);
     }
   }, []);
 
@@ -67,6 +105,8 @@ export function useBluetoothPrinter() {
     try {
       await bluetoothPrinter.disconnectFromDevice();
       setSelectedDevice(null);
+      // Remove from localStorage
+      localStorage.removeItem('bluetooth-printer');
       toast({
         title: 'Disconnected',
         description: 'Disconnected from printer',
@@ -85,6 +125,19 @@ export function useBluetoothPrinter() {
     try {
       setIsPrinting(true);
       console.log('Sending print job...');
+      
+      // First check if we need to reconnect
+      if (!bluetoothPrinter.isConnected() && selectedDevice) {
+        console.log('Printer not connected, attempting to reconnect...');
+        try {
+          await bluetoothPrinter.connectToDevice(selectedDevice.id);
+        } catch (error) {
+          console.error('Error reconnecting to device:', error);
+          throw new Error('Printer disconnected. Please reconnect to print.');
+        }
+      }
+      
+      // Now try to print
       await bluetoothPrinter.printReceipt({ receiptData, copies });
       console.log('Print job completed');
       toast({
@@ -103,11 +156,12 @@ export function useBluetoothPrinter() {
     } finally {
       setIsPrinting(false);
     }
-  }, []);
+  }, [selectedDevice]);
 
   return {
     isScanning,
     isPrinting,
+    isConnecting,
     devices,
     selectedDevice,
     scanForDevices,

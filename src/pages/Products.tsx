@@ -84,6 +84,19 @@ const Products = () => {
     }
   });
 
+  // Listen for search events from the header
+  useEffect(() => {
+    const handleGlobalSearch = (event: CustomEvent) => {
+      setSearch(event.detail);
+    };
+
+    window.addEventListener('app-search', handleGlobalSearch as EventListener);
+    
+    return () => {
+      window.removeEventListener('app-search', handleGlobalSearch as EventListener);
+    };
+  }, []);
+
   // Update filtered products when products or search change
   useEffect(() => {
     if (products) {

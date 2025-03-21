@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Settings as SettingsIcon, 
   User, 
@@ -17,18 +17,88 @@ import { Switch } from "@/components/ui/switch";
 import GlassCard from "@/components/ui-custom/GlassCard";
 import { SlideUpTransition } from "@/hooks/useTransition";
 import { toast } from "@/hooks/use-toast";
+import BluetoothPrinterModal from "@/components/ui-custom/BluetoothPrinterModal";
+import { useBluetoothPrinter } from "@/hooks/useBluetoothPrinter";
+import { useNavigate } from "react-router-dom";
+
+// Create a key for storing settings
+const SETTINGS_STORAGE_KEY = 'pos-system-settings';
 
 const Settings = () => {
-  const [notifications, setNotifications] = useState(true);
-  const [sound, setSound] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
-  const [printReceipt, setPrintReceipt] = useState(true);
-  const [language, setLanguage] = useState("en");
+  const navigate = useNavigate();
+  const [showPrinterModal, setShowPrinterModal] = useState(false);
+  const { selectedDevice } = useBluetoothPrinter();
+  
+  // App settings with localStorage persistence
+  const [notifications, setNotifications] = useState(() => {
+    return localStorage.getItem(`${SETTINGS_STORAGE_KEY}-notifications`) === 'true' || true;
+  });
+  
+  const [sound, setSound] = useState(() => {
+    return localStorage.getItem(`${SETTINGS_STORAGE_KEY}-sound`) === 'true' || true;
+  });
+  
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem(`${SETTINGS_STORAGE_KEY}-darkMode`) === 'true' || false;
+  });
+  
+  const [printReceipt, setPrintReceipt] = useState(() => {
+    return localStorage.getItem(`${SETTINGS_STORAGE_KEY}-printReceipt`) === 'true' || true;
+  });
+  
+  const [language, setLanguage] = useState(() => {
+    return localStorage.getItem(`${SETTINGS_STORAGE_KEY}-language`) || "en";
+  });
+
+  // Save settings to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(`${SETTINGS_STORAGE_KEY}-notifications`, notifications.toString());
+  }, [notifications]);
+  
+  useEffect(() => {
+    localStorage.setItem(`${SETTINGS_STORAGE_KEY}-sound`, sound.toString());
+  }, [sound]);
+  
+  useEffect(() => {
+    localStorage.setItem(`${SETTINGS_STORAGE_KEY}-darkMode`, darkMode.toString());
+    // Apply dark mode to the document
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+  
+  useEffect(() => {
+    localStorage.setItem(`${SETTINGS_STORAGE_KEY}-printReceipt`, printReceipt.toString());
+  }, [printReceipt]);
+  
+  useEffect(() => {
+    localStorage.setItem(`${SETTINGS_STORAGE_KEY}-language`, language);
+    // You would implement actual language change logic here
+  }, [language]);
 
   const handleLogout = () => {
+    // Clear any user session data here
+    localStorage.removeItem('user-session');
+    
     toast({
       title: "Logged out",
       description: "You have been logged out successfully"
+    });
+    
+    // Navigate to home page
+    navigate('/');
+  };
+
+  const openPrinterConfig = () => {
+    setShowPrinterModal(true);
+  };
+
+  const handlePrinterSelected = () => {
+    toast({
+      title: "Printer configured",
+      description: "Your printer has been successfully configured"
     });
   };
 
@@ -52,7 +122,13 @@ const Settings = () => {
                 </div>
                 <Switch 
                   checked={notifications} 
-                  onCheckedChange={setNotifications} 
+                  onCheckedChange={(checked) => {
+                    setNotifications(checked);
+                    toast({
+                      title: checked ? "Notifications enabled" : "Notifications disabled",
+                      description: checked ? "You will now receive notifications" : "You will no longer receive notifications"
+                    });
+                  }}
                 />
               </div>
               
@@ -63,7 +139,12 @@ const Settings = () => {
                 </div>
                 <Switch 
                   checked={sound} 
-                  onCheckedChange={setSound} 
+                  onCheckedChange={(checked) => {
+                    setSound(checked);
+                    toast({
+                      title: checked ? "Sound effects enabled" : "Sound effects disabled"
+                    });
+                  }}
                 />
               </div>
             </div>
@@ -87,12 +168,17 @@ const Settings = () => {
                 </div>
                 <Switch 
                   checked={printReceipt} 
-                  onCheckedChange={setPrintReceipt} 
+                  onCheckedChange={(checked) => {
+                    setPrintReceipt(checked);
+                    toast({
+                      title: checked ? "Auto-print enabled" : "Auto-print disabled"
+                    });
+                  }}
                 />
               </div>
               
-              <Button variant="outline" className="w-full justify-between">
-                <span>Configure Printer</span>
+              <Button variant="outline" className="w-full justify-between" onClick={openPrinterConfig}>
+                <span>Configure Printer {selectedDevice && `(${selectedDevice.name})`}</span>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
@@ -116,7 +202,12 @@ const Settings = () => {
                 </div>
                 <Switch 
                   checked={darkMode} 
-                  onCheckedChange={setDarkMode} 
+                  onCheckedChange={(checked) => {
+                    setDarkMode(checked);
+                    toast({
+                      title: checked ? "Dark mode enabled" : "Light mode enabled"
+                    });
+                  }}
                 />
               </div>
               
@@ -126,7 +217,13 @@ const Settings = () => {
                   <Button 
                     variant={language === "en" ? "default" : "outline"}
                     className="justify-between"
-                    onClick={() => setLanguage("en")}
+                    onClick={() => {
+                      setLanguage("en");
+                      toast({
+                        title: "Language changed",
+                        description: "Language set to English"
+                      });
+                    }}
                   >
                     <span>English</span>
                     {language === "en" && <Check className="h-4 w-4" />}
@@ -135,7 +232,13 @@ const Settings = () => {
                   <Button 
                     variant={language === "id" ? "default" : "outline"}
                     className="justify-between"
-                    onClick={() => setLanguage("id")}
+                    onClick={() => {
+                      setLanguage("id");
+                      toast({
+                        title: "Bahasa diubah",
+                        description: "Bahasa diatur ke Bahasa Indonesia"
+                      });
+                    }}
                   >
                     <span>Indonesian</span>
                     {language === "id" && <Check className="h-4 w-4" />}
@@ -186,6 +289,14 @@ const Settings = () => {
           </Button>
         </SlideUpTransition>
       </div>
+
+      <BluetoothPrinterModal 
+        isOpen={showPrinterModal}
+        onClose={() => setShowPrinterModal(false)}
+        onPrinterSelected={handlePrinterSelected}
+        previewTransaction={null}
+        previewStoreInfo={null}
+      />
     </div>
   );
 };

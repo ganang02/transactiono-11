@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Search, 
   Filter, 
@@ -44,6 +43,19 @@ const Transactions = () => {
     selectedDevice: connectedPrinter,
     printReceipt
   } = useBluetoothPrinter();
+
+  // Listen for search events from the header
+  useEffect(() => {
+    const handleGlobalSearch = (event: CustomEvent) => {
+      setSearch(event.detail);
+    };
+
+    window.addEventListener('app-search', handleGlobalSearch as EventListener);
+    
+    return () => {
+      window.removeEventListener('app-search', handleGlobalSearch as EventListener);
+    };
+  }, []);
 
   // Add the missing handleSearch function
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {

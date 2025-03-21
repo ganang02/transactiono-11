@@ -1,4 +1,3 @@
-
 // Type definitions for Bluetooth printer functionality
 export interface BluetoothDevice {
   id: string;
@@ -36,6 +35,7 @@ class BluetoothPrinter {
   private devices: BluetoothDevice[] = [];
   private connectedDevice: BluetoothDevice | null = null;
   private characteristic: any = null;
+  private isDeviceConnected: boolean = false;
 
   constructor() {
     // Try to restore saved device on initialization
@@ -47,10 +47,41 @@ class BluetoothPrinter {
         console.error('Error restoring saved printer:', e);
       }
     }
+    
+    // Setup disconnection listener
+    if (typeof navigator !== 'undefined' && navigator.bluetooth) {
+      navigator.bluetooth.addEventListener('disconnected', (event: any) => {
+        console.log('Bluetooth device disconnected', event);
+        this.isDeviceConnected = false;
+        this.characteristic = null;
+      });
+    }
   }
 
   isSupported(): boolean {
-    return 'bluetooth' in navigator;
+    return (typeof navigator !== 'undefined' && 'bluetooth' in navigator);
+  }
+  
+  isConnected(): boolean {
+    return this.isDeviceConnected && this.characteristic !== null;
+  }
+
+  async getPairedDevices(): Promise<BluetoothDevice[]> {
+    if (typeof navigator === 'undefined' || !navigator.bluetooth || !navigator.bluetooth.getDevices) {
+      throw new Error('getPairedDevices is not supported in this browser/device');
+    }
+    
+    try {
+      const devices = await navigator.bluetooth.getDevices();
+      return devices.map(device => ({
+        id: device.id || Math.random().toString(36).substring(2, 9),
+        name: device.name || 'Unknown Printer',
+        device: device
+      }));
+    } catch (error) {
+      console.error('Error getting paired devices:', error);
+      throw error;
+    }
   }
 
   async scanForDevices(): Promise<BluetoothDevice[]> {
@@ -60,18 +91,45 @@ class BluetoothPrinter {
     
     try {
       console.log('Starting Bluetooth scan...');
-      const device = await (navigator as any).bluetooth.requestDevice({
-        acceptAllDevices: true,
-        // Commonly used service UUIDs for thermal printers
-        optionalServices: [
-          '000018f0-0000-1000-8000-00805f9b34fb',
-          '49535343-fe7d-4ae5-8fa9-9fafd205e455',
-          '0000ff00-0000-1000-8000-00805f9b34fb',
-          '000018f0-0000-1000-8000-00805f9b34fb',
-          '18F0',
-          'E7810A71-73AE-499D-8C15-FAA9AEF0C3F2'
-        ]
-      });
+      
+      // Services that might be used by thermal printers
+      const services = [
+        '000018f0-0000-1000-8000-00805f9b34fb',
+        '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+        '0000ff00-0000-1000-8000-00805f9b34fb',
+        '000018f0-0000-1000-8000-00805f9b34fb',
+        '18F0',
+        'E7810A71-73AE-499D-8C15-FAA9AEF0C3F2',
+        // Generic GATT services that might help
+        '1800', // Generic Access
+        '1801', // Generic Attribute
+        '180A', // Device Information
+        // Add as many UUIDs as needed
+      ];
+      
+      let device;
+      try {
+        // First try with specific service filters
+        device = await navigator.bluetooth.requestDevice({
+          filters: [
+            { services: services },
+            // Common names for printers
+            { namePrefix: 'Printer' },
+            { namePrefix: 'POS' },
+            { namePrefix: 'ESC' },
+            { namePrefix: 'BT' },
+            // Add more common printer name prefixes
+          ],
+          optionalServices: services
+        });
+      } catch (err) {
+        console.log('Failed with service filters, trying acceptAllDevices:', err);
+        // If that fails, try accepting all devices
+        device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: services
+        });
+      }
       
       console.log('Device found:', device);
       
@@ -95,10 +153,22 @@ class BluetoothPrinter {
   async connectToDevice(deviceId: string): Promise<BluetoothDevice> {
     console.log('Connecting to device:', deviceId);
     
-    // Find the device in our list
-    const device = this.devices.find(d => d.id === deviceId);
+    // Find the device in our list or get it from paired devices
+    let device = this.devices.find(d => d.id === deviceId);
     if (!device || !device.device) {
-      throw new Error('Device not found. Please scan again.');
+      // Try to get from paired devices if supported
+      if (navigator.bluetooth.getDevices) {
+        const pairedDevices = await this.getPairedDevices();
+        device = pairedDevices.find(d => d.id === deviceId);
+      }
+      
+      // If still not found, it might be a previously saved device that needs reconnection
+      if (!device && this.connectedDevice?.id === deviceId) {
+        console.log('Device not in device list but matches saved device. Need to scan first.');
+        throw new Error('Device not found. Please scan for devices first.');
+      } else if (!device) {
+        throw new Error('Device not found. Please scan again.');
+      }
     }
     
     try {
@@ -111,8 +181,13 @@ class BluetoothPrinter {
         '000018f0-0000-1000-8000-00805f9b34fb',
         '49535343-fe7d-4ae5-8fa9-9fafd205e455',
         '0000ff00-0000-1000-8000-00805f9b34fb',
+        '000018f0-0000-1000-8000-00805f9b34fb',
         '18F0',
-        'E7810A71-73AE-499D-8C15-FAA9AEF0C3F2'
+        'E7810A71-73AE-499D-8C15-FAA9AEF0C3F2',
+        // Try generic services too
+        '1800', // Generic Access
+        '1801', // Generic Attribute
+        '180A', // Device Information
       ];
       
       let service = null;
@@ -130,6 +205,21 @@ class BluetoothPrinter {
       }
       
       if (!service) {
+        // If no specific services found, list all services
+        console.log('No predefined services found. Listing all available services...');
+        try {
+          const services = await server.getPrimaryServices();
+          console.log('All available services:', services);
+          if (services.length > 0) {
+            service = services[0]; // Try the first available service
+            console.log('Using first available service:', service);
+          }
+        } catch (e) {
+          console.error('Could not list services:', e);
+        }
+      }
+      
+      if (!service) {
         throw new Error('No compatible printer service found on this device');
       }
       
@@ -138,6 +228,7 @@ class BluetoothPrinter {
         '00002af1-0000-1000-8000-00805f9b34fb',
         '49535343-8841-43f4-a8d4-ecbe34729bb3',
         '0000ff02-0000-1000-8000-00805f9b34fb',
+        '00002af1-0000-1000-8000-00805f9b34fb',
         '2AF1',
         'BEF8D6C9-9C21-4C9E-B632-BD58C1009F9F'
       ];
@@ -156,11 +247,34 @@ class BluetoothPrinter {
       }
       
       if (!this.characteristic) {
+        // If no specific characteristic found, try to list all characteristics
+        console.log('No predefined characteristics found. Listing all available characteristics...');
+        try {
+          const characteristics = await service.getCharacteristics();
+          console.log('All available characteristics:', characteristics);
+          
+          // Look for a writable characteristic
+          for (const char of characteristics) {
+            const properties = char.properties;
+            console.log('Characteristic properties:', properties);
+            if (properties.write || properties.writeWithoutResponse) {
+              this.characteristic = char;
+              console.log('Found writable characteristic:', char);
+              break;
+            }
+          }
+        } catch (e) {
+          console.error('Could not list characteristics:', e);
+        }
+      }
+      
+      if (!this.characteristic) {
         throw new Error('No compatible printer characteristic found on this device');
       }
       
       // Store the connected device
       this.connectedDevice = device;
+      this.isDeviceConnected = true;
       
       // Save to localStorage for persistence
       localStorage.setItem('bluetooth-printer', JSON.stringify({
@@ -172,6 +286,8 @@ class BluetoothPrinter {
       return device;
     } catch (error) {
       console.error('Error connecting to device:', error);
+      this.isDeviceConnected = false;
+      this.characteristic = null;
       throw error;
     }
   }
@@ -190,6 +306,7 @@ class BluetoothPrinter {
       
       this.connectedDevice = null;
       this.characteristic = null;
+      this.isDeviceConnected = false;
       
       // Remove from localStorage
       localStorage.removeItem('bluetooth-printer');
@@ -213,7 +330,7 @@ class BluetoothPrinter {
     
     try {
       // Connect to the device if needed
-      if (!this.connectedDevice.device || !this.connectedDevice.device.gatt.connected) {
+      if (!this.isDeviceConnected || !this.connectedDevice.device || !this.connectedDevice.device.gatt.connected) {
         console.log('Reconnecting to device before printing...');
         await this.connectToDevice(this.connectedDevice.id);
       }
@@ -226,7 +343,7 @@ class BluetoothPrinter {
       const data = encoder.encode(receiptContent);
       
       // For large data, we need to split into chunks
-      const CHUNK_SIZE = 512; // Most BLE devices have a limit of around 512 bytes
+      const CHUNK_SIZE = 256; // Some devices have a smaller MTU, so use a smaller chunk size
       
       // Print multiple copies if requested
       for (let copy = 0; copy < copies; copy++) {
@@ -239,30 +356,50 @@ class BluetoothPrinter {
           
           // Try different write methods as some printers require specific approaches
           try {
-            await this.characteristic.writeValue(chunk);
-          } catch (e) {
-            console.error('Error with writeValue, trying writeValueWithoutResponse:', e);
-            try {
+            if (this.characteristic.properties.writeWithoutResponse) {
               await this.characteristic.writeValueWithoutResponse(chunk);
-            } catch (e2) {
-              console.error('Error with writeValueWithoutResponse, trying write:', e2);
+            } else if (this.characteristic.properties.write) {
+              await this.characteristic.writeValue(chunk);
+            } else {
+              // Fallback to generic write method
               await this.characteristic.write(chunk);
+            }
+          } catch (e) {
+            console.error('Error writing to characteristic:', e);
+            
+            // Try alternative methods
+            try {
+              // Try a different method
+              if (typeof this.characteristic.writeValue === 'function') {
+                await this.characteristic.writeValue(chunk);
+              } else if (typeof this.characteristic.writeValueWithoutResponse === 'function') {
+                await this.characteristic.writeValueWithoutResponse(chunk);
+              } else if (typeof this.characteristic.write === 'function') {
+                await this.characteristic.write(chunk);
+              } else {
+                throw new Error('No working write method found');
+              }
+            } catch (e2) {
+              console.error('All write methods failed:', e2);
+              throw new Error('Failed to send data to printer. Try reconnecting.');
             }
           }
           
           // Small delay between chunks to avoid overflow
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 150));
         }
         
         // Add delay between copies
         if (copy < copies - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 1500));
         }
       }
       
       console.log('Print job completed successfully');
     } catch (error) {
       console.error('Error printing receipt:', error);
+      // Mark as disconnected on error
+      this.isDeviceConnected = false;
       throw error;
     }
   }
