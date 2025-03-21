@@ -3,9 +3,7 @@
 export interface BluetoothDevice {
   id: string;
   name: string;
-  gatt: {
-    connect: () => Promise<BluetoothRemoteGATTServer>;
-  };
+  device?: any; // Store the actual browser Bluetooth device
 }
 
 export interface PrintOptions {
@@ -33,71 +31,145 @@ export interface ReceiptData {
   notes?: string;
 }
 
-interface BluetoothRemoteGATTServer {
-  getPrimaryService: (service: string) => Promise<BluetoothRemoteGATTService>;
-  disconnect: () => void;
-}
-
-interface BluetoothRemoteGATTService {
-  getCharacteristic: (characteristic: string) => Promise<BluetoothRemoteGATTCharacteristic>;
-}
-
-interface BluetoothRemoteGATTCharacteristic {
-  writeValue: (value: BufferSource) => Promise<void>;
-}
-
-interface NavigatorWithBluetooth extends Navigator {
-  bluetooth?: {
-    requestDevice: (options: {
-      filters?: Array<{ services?: string[], name?: string }>;
-      optionalServices?: string[];
-      acceptAllDevices?: boolean;
-    }) => Promise<BluetoothDevice>;
-  };
-}
-
-// Bluetooth printer functions class
+// Bluetooth printer class with ESC/POS commands
 class BluetoothPrinter {
-  private activeDevice: BluetoothDevice | null = null;
-  private printerServiceUUID = '000018f0-0000-1000-8000-00805f9b34fb';
-  private printerCharacteristicUUID = '00002af1-0000-1000-8000-00805f9b34fb';
+  private devices: BluetoothDevice[] = [];
+  private connectedDevice: BluetoothDevice | null = null;
+  private characteristic: any = null;
+
+  constructor() {
+    // Try to restore saved device on initialization
+    const savedDevice = localStorage.getItem('bluetooth-printer');
+    if (savedDevice) {
+      try {
+        this.connectedDevice = JSON.parse(savedDevice);
+      } catch (e) {
+        console.error('Error restoring saved printer:', e);
+      }
+    }
+  }
 
   isSupported(): boolean {
-    return !!(navigator as NavigatorWithBluetooth).bluetooth;
+    return 'bluetooth' in navigator;
   }
 
   async scanForDevices(): Promise<BluetoothDevice[]> {
     if (!this.isSupported()) {
-      throw new Error('Bluetooth not supported in this browser');
+      throw new Error('Bluetooth is not supported in this browser');
     }
     
     try {
-      const device = await (navigator as NavigatorWithBluetooth).bluetooth!.requestDevice({
+      console.log('Starting Bluetooth scan...');
+      const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: [this.printerServiceUUID]
+        // Commonly used service UUIDs for thermal printers
+        optionalServices: [
+          '000018f0-0000-1000-8000-00805f9b34fb',
+          '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+          '0000ff00-0000-1000-8000-00805f9b34fb',
+          '000018f0-0000-1000-8000-00805f9b34fb',
+          '18F0',
+          'E7810A71-73AE-499D-8C15-FAA9AEF0C3F2'
+        ]
       });
       
-      return [{
+      console.log('Device found:', device);
+      
+      // Create a device representation
+      const bluetoothDevice: BluetoothDevice = {
         id: device.id || Math.random().toString(36).substring(2, 9),
         name: device.name || 'Unknown Printer',
-        gatt: device.gatt
-      }];
+        device: device
+      };
+      
+      // Store in the list of devices
+      this.devices = [bluetoothDevice];
+      
+      return this.devices;
     } catch (error) {
-      console.error('Error scanning for devices:', error);
+      console.error('Error scanning for Bluetooth devices:', error);
       throw error;
     }
   }
 
   async connectToDevice(deviceId: string): Promise<BluetoothDevice> {
-    // In a real implementation, we would need to store devices between scans
-    // For now, we'll just return the last scanned device if the ID matches
-    if (!this.activeDevice || this.activeDevice.id !== deviceId) {
+    console.log('Connecting to device:', deviceId);
+    
+    // Find the device in our list
+    const device = this.devices.find(d => d.id === deviceId);
+    if (!device || !device.device) {
       throw new Error('Device not found. Please scan again.');
     }
     
     try {
-      await this.activeDevice.gatt.connect();
-      return this.activeDevice;
+      console.log('Attempting GATT connection...');
+      const server = await device.device.gatt.connect();
+      console.log('GATT connected, getting available services...');
+      
+      // Try different service UUIDs commonly used by thermal printers
+      const serviceUUIDs = [
+        '000018f0-0000-1000-8000-00805f9b34fb',
+        '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+        '0000ff00-0000-1000-8000-00805f9b34fb',
+        '18F0',
+        'E7810A71-73AE-499D-8C15-FAA9AEF0C3F2'
+      ];
+      
+      let service = null;
+      for (const uuid of serviceUUIDs) {
+        try {
+          console.log(`Trying service UUID: ${uuid}`);
+          service = await server.getPrimaryService(uuid);
+          if (service) {
+            console.log(`Found matching service: ${uuid}`);
+            break;
+          }
+        } catch (e) {
+          console.log(`Service ${uuid} not found, trying next...`);
+        }
+      }
+      
+      if (!service) {
+        throw new Error('No compatible printer service found on this device');
+      }
+      
+      // Try different characteristic UUIDs for writing data
+      const characteristicUUIDs = [
+        '00002af1-0000-1000-8000-00805f9b34fb',
+        '49535343-8841-43f4-a8d4-ecbe34729bb3',
+        '0000ff02-0000-1000-8000-00805f9b34fb',
+        '2AF1',
+        'BEF8D6C9-9C21-4C9E-B632-BD58C1009F9F'
+      ];
+      
+      for (const uuid of characteristicUUIDs) {
+        try {
+          console.log(`Trying characteristic UUID: ${uuid}`);
+          this.characteristic = await service.getCharacteristic(uuid);
+          if (this.characteristic) {
+            console.log(`Found matching characteristic: ${uuid}`);
+            break;
+          }
+        } catch (e) {
+          console.log(`Characteristic ${uuid} not found, trying next...`);
+        }
+      }
+      
+      if (!this.characteristic) {
+        throw new Error('No compatible printer characteristic found on this device');
+      }
+      
+      // Store the connected device
+      this.connectedDevice = device;
+      
+      // Save to localStorage for persistence
+      localStorage.setItem('bluetooth-printer', JSON.stringify({
+        id: device.id,
+        name: device.name
+      }));
+      
+      console.log('Successfully connected to printer:', device.name);
+      return device;
     } catch (error) {
       console.error('Error connecting to device:', error);
       throw error;
@@ -105,14 +177,23 @@ class BluetoothPrinter {
   }
 
   async disconnectFromDevice(): Promise<void> {
-    if (!this.activeDevice) {
+    if (!this.connectedDevice || !this.connectedDevice.device) {
+      console.log('No device connected, nothing to disconnect');
       return;
     }
     
     try {
-      const server = await this.activeDevice.gatt.connect();
-      server.disconnect();
-      this.activeDevice = null;
+      if (this.connectedDevice.device.gatt.connected) {
+        console.log('Disconnecting from device...');
+        this.connectedDevice.device.gatt.disconnect();
+      }
+      
+      this.connectedDevice = null;
+      this.characteristic = null;
+      
+      // Remove from localStorage
+      localStorage.removeItem('bluetooth-printer');
+      console.log('Successfully disconnected from printer');
     } catch (error) {
       console.error('Error disconnecting from device:', error);
       throw error;
@@ -120,32 +201,66 @@ class BluetoothPrinter {
   }
 
   async printReceipt({ receiptData, copies = 1 }: { receiptData: ReceiptData, copies?: number }): Promise<void> {
-    if (!this.activeDevice) {
+    console.log('Printing receipt with data:', receiptData);
+    
+    if (!this.connectedDevice) {
       throw new Error('No printer connected');
     }
     
+    if (!this.characteristic) {
+      throw new Error('Printer not properly connected. Please reconnect.');
+    }
+    
     try {
-      const server = await this.activeDevice.gatt.connect();
-      const service = await server.getPrimaryService(this.printerServiceUUID);
-      const characteristic = await service.getCharacteristic(this.printerCharacteristicUUID);
+      // Connect to the device if needed
+      if (!this.connectedDevice.device || !this.connectedDevice.device.gatt.connected) {
+        console.log('Reconnecting to device before printing...');
+        await this.connectToDevice(this.connectedDevice.id);
+      }
       
-      // Generate receipt content
+      // Format the receipt
       const receiptContent = this.formatReceiptContent(receiptData);
       
+      // Convert text to bytes using ESC/POS commands
+      const encoder = new TextEncoder();
+      const data = encoder.encode(receiptContent);
+      
+      // For large data, we need to split into chunks
+      const CHUNK_SIZE = 512; // Most BLE devices have a limit of around 512 bytes
+      
       // Print multiple copies if requested
-      for (let i = 0; i < copies; i++) {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(receiptContent);
-        await characteristic.writeValue(data);
+      for (let copy = 0; copy < copies; copy++) {
+        console.log(`Printing copy ${copy + 1} of ${copies}`);
+        
+        // Send data in chunks
+        for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+          const chunk = data.slice(i, i + CHUNK_SIZE);
+          console.log(`Sending chunk ${i / CHUNK_SIZE + 1}, size: ${chunk.length} bytes`);
+          
+          // Try different write methods as some printers require specific approaches
+          try {
+            await this.characteristic.writeValue(chunk);
+          } catch (e) {
+            console.error('Error with writeValue, trying writeValueWithoutResponse:', e);
+            try {
+              await this.characteristic.writeValueWithoutResponse(chunk);
+            } catch (e2) {
+              console.error('Error with writeValueWithoutResponse, trying write:', e2);
+              await this.characteristic.write(chunk);
+            }
+          }
+          
+          // Small delay between chunks to avoid overflow
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
         
         // Add delay between copies
-        if (i < copies - 1) {
+        if (copy < copies - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
       
-      // Disconnect after printing
-      server.disconnect();
+      console.log('Print job completed successfully');
     } catch (error) {
       console.error('Error printing receipt:', error);
       throw error;
@@ -153,8 +268,11 @@ class BluetoothPrinter {
   }
 
   private formatReceiptContent(data: ReceiptData): string {
-    // Create a nicely formatted receipt with box drawing characters and formatting
+    // Create a nicely formatted receipt with ESC/POS commands
     let receipt = '';
+    
+    // Initialize printer
+    receipt += '\x1B@'; // Initialize printer
     
     // Store header with nice formatting
     receipt += '\x1B\x61\x01'; // Center align
@@ -213,7 +331,8 @@ class BluetoothPrinter {
     receipt += '--------------------------------\n';
     receipt += '\x1B\x61\x01'; // Center align
     receipt += `${data.notes || 'Thank you for your purchase!'}\n`;
-    receipt += '\n\n\n\n\n'; // Feed paper to allow tearing
+    receipt += '\n\n\n\n'; // Feed paper
+    receipt += '\x1D\x56\x41\x10'; // Cut paper (partial cut)
     
     return receipt;
   }

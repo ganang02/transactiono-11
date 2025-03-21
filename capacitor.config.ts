@@ -23,7 +23,13 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: true, // Allow HTTP requests in production
     captureInput: true,
-    webContentsDebuggingEnabled: true
+    webContentsDebuggingEnabled: true,
+    permissions: [
+      "android.permission.BLUETOOTH",
+      "android.permission.BLUETOOTH_ADMIN",
+      "android.permission.BLUETOOTH_CONNECT",
+      "android.permission.BLUETOOTH_SCAN"
+    ]
   }
 };
 

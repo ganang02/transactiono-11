@@ -24,14 +24,16 @@ export function useBluetoothPrinter() {
   const scanForDevices = useCallback(async () => {
     try {
       setIsScanning(true);
+      console.log('Starting device scan...');
       const foundDevices = await bluetoothPrinter.scanForDevices();
+      console.log('Found devices:', foundDevices);
       setDevices(foundDevices);
       return foundDevices;
     } catch (error: any) {
       console.error('Error scanning for devices:', error);
       toast({
         title: 'Scanning Failed',
-        description: error.message || 'Failed to scan for Bluetooth devices',
+        description: error.message || 'Failed to scan for Bluetooth devices. Make sure Bluetooth is enabled.',
         variant: 'destructive',
       });
       return [];
@@ -42,10 +44,9 @@ export function useBluetoothPrinter() {
 
   const connectToDevice = useCallback(async (deviceId: string) => {
     try {
+      console.log('Connecting to device:', deviceId);
       const connectedDevice = await bluetoothPrinter.connectToDevice(deviceId);
       setSelectedDevice(connectedDevice);
-      // Save to localStorage for persistence
-      localStorage.setItem('bluetooth-printer', JSON.stringify(connectedDevice));
       toast({
         title: 'Connected',
         description: `Connected to ${connectedDevice.name}`,
@@ -66,8 +67,6 @@ export function useBluetoothPrinter() {
     try {
       await bluetoothPrinter.disconnectFromDevice();
       setSelectedDevice(null);
-      // Remove from localStorage
-      localStorage.removeItem('bluetooth-printer');
       toast({
         title: 'Disconnected',
         description: 'Disconnected from printer',
@@ -85,7 +84,9 @@ export function useBluetoothPrinter() {
   const printReceipt = useCallback(async (receiptData: ReceiptData, copies = 1) => {
     try {
       setIsPrinting(true);
+      console.log('Sending print job...');
       await bluetoothPrinter.printReceipt({ receiptData, copies });
+      console.log('Print job completed');
       toast({
         title: 'Receipt Printed',
         description: 'Receipt was successfully sent to the printer',
@@ -95,7 +96,7 @@ export function useBluetoothPrinter() {
       console.error('Error printing receipt:', error);
       toast({
         title: 'Printing Failed',
-        description: error.message || 'Failed to print receipt',
+        description: error.message || 'Failed to print receipt. Try reconnecting to the printer.',
         variant: 'destructive',
       });
       return false;
