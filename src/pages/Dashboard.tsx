@@ -8,7 +8,9 @@ import {
   Calendar, 
   ArrowRight,
   DollarSign,
-  RefreshCw
+  RefreshCw,
+  Activity,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -18,17 +20,29 @@ import { SlideUpTransition } from "@/hooks/useTransition";
 import { Spinner } from "@/components/ui/spinner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardAPI } from "@/api/api";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Card } from "@/components/ui/card";
+import { toast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [selected, setSelected] = useState("today");
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   
-  // Fetch dashboard data from API
-  const { data: dashboardData, isLoading, isRefetching } = useQuery({
+  // Fetch dashboard data from API with error handling
+  const { data: dashboardData, isLoading, isRefetching, isError } = useQuery({
     queryKey: ['dashboard', selected],
-    queryFn: DashboardAPI.getData,
-    staleTime: 5 * 60 * 1000 // 5 minutes
+    queryFn: () => DashboardAPI.getData(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+    onError: () => {
+      toast({
+        title: "Unable to load dashboard data",
+        description: "Using mock data for preview",
+        variant: "default",
+      });
+    }
   });
 
   const refreshData = () => {
@@ -39,7 +53,7 @@ const Dashboard = () => {
   const salesData = dashboardData?.dailyRevenue || [];
 
   return (
-    <div className="container px-4 py-6 mx-auto max-w-7xl animate-fade-in">
+    <div className="container px-2 sm:px-4 py-3 sm:py-6 mx-auto max-w-7xl animate-fade-in">
       {isLoading ? (
         <div className="flex justify-center items-center h-[70vh] flex-col">
           <Spinner size="lg" className="mb-4" />
@@ -47,8 +61,8 @@ const Dashboard = () => {
         </div>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold">Dashboard</h2>
+          <div className="flex justify-between items-center mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-semibold">Dashboard</h2>
             <Button 
               variant="outline" 
               size="sm" 
@@ -59,89 +73,124 @@ const Dashboard = () => {
               {isRefetching ? (
                 <>
                   <Spinner size="sm" />
-                  Refreshing...
+                  <span className="hidden sm:inline">Refreshing...</span>
                 </>
               ) : (
                 <>
                   <RefreshCw className="h-4 w-4" />
-                  Refresh Data
+                  <span className="hidden sm:inline">Refresh</span>
                 </>
               )}
             </Button>
           </div>
         
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 sm:mb-6">
             <SlideUpTransition show={true} duration={300}>
-              <GlassCard className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-muted-foreground text-sm font-medium">Today's Sales</h3>
-                  <div className="p-2 rounded-full bg-green-100 text-green-600">
-                    <TrendingUp className="h-4 w-4" />
+              <GlassCard className="p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-muted-foreground text-xs sm:text-sm font-medium">Today's Sales</h3>
+                  <div className="p-1.5 sm:p-2 rounded-full bg-green-100 text-green-600">
+                    <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
                   </div>
                 </div>
-                <p className="text-3xl font-semibold">{formatCurrency(dashboardData?.todayRevenue || 0)}</p>
-                <p className="text-muted-foreground text-sm mt-2">
-                  From {dashboardData?.totalTransactions || 0} transactions
+                <p className="text-lg sm:text-2xl font-semibold">{formatCurrency(dashboardData?.todayRevenue || 0)}</p>
+                <p className="text-muted-foreground text-xs sm:text-sm mt-1">
+                  {dashboardData?.totalTransactions || 0} transactions
                 </p>
               </GlassCard>
             </SlideUpTransition>
 
-            <SlideUpTransition show={true} duration={500}>
-              <GlassCard className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-muted-foreground text-sm font-medium">Products</h3>
-                  <div className="p-2 rounded-full bg-blue-100 text-blue-600">
-                    <Package className="h-4 w-4" />
+            <SlideUpTransition show={true} duration={400}>
+              <GlassCard className="p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-muted-foreground text-xs sm:text-sm font-medium">Products</h3>
+                  <div className="p-1.5 sm:p-2 rounded-full bg-blue-100 text-blue-600">
+                    <Package className="h-3 w-3 sm:h-4 sm:w-4" />
                   </div>
                 </div>
-                <p className="text-3xl font-semibold">{dashboardData?.lowStockProducts?.length || 0}</p>
-                <p className="text-muted-foreground text-sm mt-2">Low stock items</p>
+                <p className="text-lg sm:text-2xl font-semibold">{dashboardData?.lowStockProducts?.length || 0}</p>
+                <p className="text-muted-foreground text-xs sm:text-sm mt-1">Low stock items</p>
+              </GlassCard>
+            </SlideUpTransition>
+
+            <SlideUpTransition show={true} duration={500}>
+              <GlassCard className="p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-muted-foreground text-xs sm:text-sm font-medium">Customers</h3>
+                  <div className="p-1.5 sm:p-2 rounded-full bg-purple-100 text-purple-600">
+                    <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                  </div>
+                </div>
+                <p className="text-lg sm:text-2xl font-semibold">{dashboardData?.uniqueCustomers || 25}</p>
+                <p className="text-muted-foreground text-xs sm:text-sm mt-1">Active today</p>
+              </GlassCard>
+            </SlideUpTransition>
+
+            <SlideUpTransition show={true} duration={600}>
+              <GlassCard className="p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-muted-foreground text-xs sm:text-sm font-medium">Average Sale</h3>
+                  <div className="p-1.5 sm:p-2 rounded-full bg-amber-100 text-amber-600">
+                    <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+                  </div>
+                </div>
+                <p className="text-lg sm:text-2xl font-semibold">{formatCurrency(dashboardData?.averageSale || 42000)}</p>
+                <p className="text-muted-foreground text-xs sm:text-sm mt-1">Per transaction</p>
               </GlassCard>
             </SlideUpTransition>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <SlideUpTransition show={true} duration={600} className="lg:col-span-2">
-              <GlassCard className="p-6">
-                <div className="flex items-center justify-between mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
+            <SlideUpTransition show={true} duration={700} className="lg:col-span-2">
+              <GlassCard className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-2">
                   <h3 className="font-medium">Sales Overview</h3>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto pb-1 sm:pb-0">
                     <Button 
                       variant={selected === "today" ? "secondary" : "ghost"} 
-                      size="sm"
+                      size={isMobile ? "xs" : "sm"}
                       onClick={() => setSelected("today")}
+                      className="text-xs sm:text-sm"
                     >
                       Today
                     </Button>
                     <Button 
                       variant={selected === "week" ? "secondary" : "ghost"} 
-                      size="sm"
+                      size={isMobile ? "xs" : "sm"}
                       onClick={() => setSelected("week")}
+                      className="text-xs sm:text-sm"
                     >
                       This Week
                     </Button>
                     <Button 
                       variant={selected === "month" ? "secondary" : "ghost"} 
-                      size="sm"
+                      size={isMobile ? "xs" : "sm"}
                       onClick={() => setSelected("month")}
+                      className="text-xs sm:text-sm"
                     >
                       This Month
                     </Button>
                   </div>
                 </div>
                 
-                <div className="h-[300px] w-full">
+                <div className="h-[220px] sm:h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={salesData}
-                      margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
+                      margin={{ top: 10, right: 5, left: -15, bottom: 20 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="date" axisLine={false} tickLine={false} />
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fontSize: isMobile ? 10 : 12 }}
+                      />
                       <YAxis 
                         axisLine={false} 
                         tickLine={false} 
                         tickFormatter={(value) => `${value / 1000}k`} 
+                        tick={{ fontSize: isMobile ? 10 : 12 }}
                       />
                       <Tooltip 
                         formatter={(value: number) => [formatCurrency(value), 'Sales']}
@@ -165,80 +214,80 @@ const Dashboard = () => {
               </GlassCard>
             </SlideUpTransition>
 
-            <SlideUpTransition show={true} duration={700}>
-              <GlassCard className="p-6">
-                <h3 className="font-medium mb-4">Quick Actions</h3>
+            <SlideUpTransition show={true} duration={800}>
+              <Card className="p-4 sm:p-6 h-full border border-gray-100 dark:border-gray-800 shadow-sm">
+                <h3 className="font-medium mb-3 sm:mb-4">Quick Actions</h3>
                 
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-2 sm:gap-3">
                   <Button 
                     variant="outline" 
-                    className="w-full justify-between group text-left h-auto py-3"
+                    className="w-full justify-between group text-left h-auto py-2 sm:py-3"
                     onClick={() => navigate('/cashier')}
                   >
                     <div className="flex items-center">
-                      <div className="p-2 rounded-full bg-blue-100 text-blue-600 mr-3">
-                        <ShoppingCart className="h-4 w-4" />
+                      <div className="p-1.5 sm:p-2 rounded-full bg-blue-100 text-blue-600 mr-2 sm:mr-3">
+                        <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
                       </div>
                       <div>
-                        <p className="font-medium">New Transaction</p>
-                        <p className="text-xs text-muted-foreground">Create a new sale</p>
+                        <p className="font-medium text-sm sm:text-base">New Transaction</p>
+                        <p className="text-xs text-muted-foreground hidden sm:block">Create a new sale</p>
                       </div>
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   </Button>
                   
                   <Button 
                     variant="outline" 
-                    className="w-full justify-between group text-left h-auto py-3"
+                    className="w-full justify-between group text-left h-auto py-2 sm:py-3"
                     onClick={() => navigate('/products')}
                   >
                     <div className="flex items-center">
-                      <div className="p-2 rounded-full bg-indigo-100 text-indigo-600 mr-3">
-                        <Package className="h-4 w-4" />
+                      <div className="p-1.5 sm:p-2 rounded-full bg-indigo-100 text-indigo-600 mr-2 sm:mr-3">
+                        <Package className="h-3 w-3 sm:h-4 sm:w-4" />
                       </div>
                       <div>
-                        <p className="font-medium">Add Product</p>
-                        <p className="text-xs text-muted-foreground">Update inventory</p>
+                        <p className="font-medium text-sm sm:text-base">Add Product</p>
+                        <p className="text-xs text-muted-foreground hidden sm:block">Update inventory</p>
                       </div>
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   </Button>
                   
                   <Button 
                     variant="outline" 
-                    className="w-full justify-between group text-left h-auto py-3"
+                    className="w-full justify-between group text-left h-auto py-2 sm:py-3"
                     onClick={() => navigate('/transactions')}
                   >
                     <div className="flex items-center">
-                      <div className="p-2 rounded-full bg-orange-100 text-orange-600 mr-3">
-                        <Calendar className="h-4 w-4" />
+                      <div className="p-1.5 sm:p-2 rounded-full bg-orange-100 text-orange-600 mr-2 sm:mr-3">
+                        <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                       </div>
                       <div>
-                        <p className="font-medium">View Transactions</p>
-                        <p className="text-xs text-muted-foreground">Check sales history</p>
+                        <p className="font-medium text-sm sm:text-base">View Transactions</p>
+                        <p className="text-xs text-muted-foreground hidden sm:block">Check sales history</p>
                       </div>
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   </Button>
                   
                   <Button 
                     variant="outline" 
-                    className="w-full justify-between group text-left h-auto py-3"
-                    onClick={() => navigate('/')}
+                    className="w-full justify-between group text-left h-auto py-2 sm:py-3"
+                    onClick={() => navigate('/cashier')}
                   >
                     <div className="flex items-center">
-                      <div className="p-2 rounded-full bg-green-100 text-green-600 mr-3">
-                        <DollarSign className="h-4 w-4" />
+                      <div className="p-1.5 sm:p-2 rounded-full bg-green-100 text-green-600 mr-2 sm:mr-3">
+                        <DollarSign className="h-3 w-3 sm:h-4 sm:w-4" />
                       </div>
                       <div>
-                        <p className="font-medium">Add Sale</p>
-                        <p className="text-xs text-muted-foreground">Record new sales</p>
+                        <p className="font-medium text-sm sm:text-base">Add Sale</p>
+                        <p className="text-xs text-muted-foreground hidden sm:block">Record new sales</p>
                       </div>
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   </Button>
                 </div>
-              </GlassCard>
+              </Card>
             </SlideUpTransition>
           </div>
         </>

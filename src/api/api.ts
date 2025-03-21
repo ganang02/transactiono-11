@@ -1,4 +1,3 @@
-
 import { toast } from "@/hooks/use-toast";
 
 // Use the environment variable or fallback to localhost
@@ -54,31 +53,32 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
     if (error instanceof TypeError && error.message.includes('Network')) {
       toast({
         title: "Network Error",
-        description: "Could not connect to the server. Please check your network connection and server URL.",
-        variant: "destructive",
+        description: "Could not connect to the server. Using offline data.",
+        variant: "default",
       });
     }
     
     // Mock data for development without backend
-    if (endpoint === '/products' && options.method === undefined) {
-      console.log('Returning mock products data');
-      return [
-        { id: '1', name: 'Coffee', price: 15000, stock: 100, category: 'drinks', barcode: '8991234567891' },
-        { id: '2', name: 'Tea', price: 12000, stock: 75, category: 'drinks', barcode: '8991234567892' },
-        { id: '3', name: 'Sandwich', price: 25000, stock: 20, category: 'food', barcode: '8991234567893' },
-        { id: '4', name: 'Cake', price: 18000, stock: 15, category: 'dessert', barcode: '8991234567894' },
-        { id: '5', name: 'Cookies', price: 10000, stock: 5, category: 'dessert', barcode: '8991234567895' },
-      ];
-    }
-    
     if (endpoint === '/dashboard') {
       console.log('Returning mock dashboard data');
       return {
-        salesSummary: {
-          total: 1250000,
-          count: 25,
-          average: 50000
-        },
+        todayRevenue: 1250000,
+        totalTransactions: 25,
+        uniqueCustomers: 18,
+        averageSale: 50000,
+        lowStockProducts: [
+          { id: '5', name: 'Cookies', stock: 5 },
+          { id: '4', name: 'Cake', stock: 15 }
+        ],
+        dailyRevenue: [
+          { date: 'Mon', revenue: 450000 },
+          { date: 'Tue', revenue: 650000 },
+          { date: 'Wed', revenue: 850000 },
+          { date: 'Thu', revenue: 950000 },
+          { date: 'Fri', revenue: 750000 },
+          { date: 'Sat', revenue: 1250000 },
+          { date: 'Sun', revenue: 980000 }
+        ],
         recentTransactions: [
           { id: 'T001', date: new Date().toISOString(), total: 85000, items: 3 },
           { id: 'T002', date: new Date().toISOString(), total: 120000, items: 5 },
@@ -88,6 +88,17 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
           { name: 'Sandwich', sold: 18, revenue: 450000 },
         ]
       };
+    }
+    
+    if (endpoint === '/products' && options.method === undefined) {
+      console.log('Returning mock products data');
+      return [
+        { id: '1', name: 'Coffee', price: 15000, stock: 100, category: 'drinks', barcode: '8991234567891' },
+        { id: '2', name: 'Tea', price: 12000, stock: 75, category: 'drinks', barcode: '8991234567892' },
+        { id: '3', name: 'Sandwich', price: 25000, stock: 20, category: 'food', barcode: '8991234567893' },
+        { id: '4', name: 'Cake', price: 18000, stock: 15, category: 'dessert', barcode: '8991234567894' },
+        { id: '5', name: 'Cookies', price: 10000, stock: 5, category: 'dessert', barcode: '8991234567895' },
+      ];
     }
     
     if (endpoint === '/transactions/pending') {
