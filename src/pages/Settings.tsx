@@ -29,20 +29,20 @@ const Settings = () => {
   const [showPrinterModal, setShowPrinterModal] = useState(false);
   const { selectedDevice } = useBluetoothPrinter();
   
-  // App settings with localStorage persistence
-  const [notifications, setNotifications] = useState(() => {
+  // App settings with localStorage persistence - fixed the type issue by making useState accept boolean rather than initializing with true
+  const [notifications, setNotifications] = useState<boolean>(() => {
     return localStorage.getItem(`${SETTINGS_STORAGE_KEY}-notifications`) === 'true' || true;
   });
   
-  const [sound, setSound] = useState(() => {
+  const [sound, setSound] = useState<boolean>(() => {
     return localStorage.getItem(`${SETTINGS_STORAGE_KEY}-sound`) === 'true' || true;
   });
   
-  const [darkMode, setDarkMode] = useState(() => {
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
     return localStorage.getItem(`${SETTINGS_STORAGE_KEY}-darkMode`) === 'true' || false;
   });
   
-  const [printReceipt, setPrintReceipt] = useState(() => {
+  const [printReceipt, setPrintReceipt] = useState<boolean>(() => {
     return localStorage.getItem(`${SETTINGS_STORAGE_KEY}-printReceipt`) === 'true' || true;
   });
   

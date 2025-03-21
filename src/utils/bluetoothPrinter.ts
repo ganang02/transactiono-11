@@ -1,3 +1,4 @@
+
 // Type definitions for Bluetooth printer functionality
 export interface BluetoothDevice {
   id: string;
@@ -48,8 +49,8 @@ class BluetoothPrinter {
       }
     }
     
-    // Setup disconnection listener
-    if (typeof navigator !== 'undefined' && navigator.bluetooth) {
+    // Setup disconnection listener if Web Bluetooth is supported
+    if (this.isSupported() && typeof navigator !== 'undefined' && navigator.bluetooth) {
       navigator.bluetooth.addEventListener('disconnected', (event: any) => {
         console.log('Bluetooth device disconnected', event);
         this.isDeviceConnected = false;
@@ -67,7 +68,7 @@ class BluetoothPrinter {
   }
 
   async getPairedDevices(): Promise<BluetoothDevice[]> {
-    if (typeof navigator === 'undefined' || !navigator.bluetooth || !navigator.bluetooth.getDevices) {
+    if (!this.isSupported() || typeof navigator === 'undefined' || !navigator.bluetooth || !navigator.bluetooth.getDevices) {
       throw new Error('getPairedDevices is not supported in this browser/device');
     }
     
