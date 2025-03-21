@@ -235,8 +235,10 @@ export class BluetoothLeService {
       });
       
       // The readRssi method returns a value object, where the RSSI is in the value property
-      console.log(`RSSI for device ${deviceId}: ${result.value}`);
-      return result.value;
+      // Ensure we're returning a number by using parseInt() or Number()
+      const rssiValue = typeof result.value === 'string' ? parseInt(result.value, 10) : result.value;
+      console.log(`RSSI for device ${deviceId}: ${rssiValue}`);
+      return rssiValue;
     } catch (error) {
       console.error('Error reading RSSI:', error);
       throw error;
