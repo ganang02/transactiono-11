@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -40,14 +39,12 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
     checkBluetoothPermissions,
   } = useBluetoothPrinter();
   
-  // For RSSI monitoring
   const { deviceRSSI } = useBluetoothLE();
   
   const [activeTab, setActiveTab] = useState<string>('connect');
   const [scanAttempted, setScanAttempted] = useState<boolean>(false);
   const isNative = Capacitor.isNativePlatform();
 
-  // Auto scan when the modal is opened
   useEffect(() => {
     if (isOpen) {
       if (permissionsGranted) {
@@ -62,7 +59,6 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
     }
   }, [isOpen, permissionsGranted]);
 
-  // Switch to preview tab if available
   useEffect(() => {
     if (previewTransaction && previewStoreInfo) {
       setActiveTab('preview');
@@ -86,7 +82,6 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
   const handleConnect = async (deviceId: string) => {
     try {
       await connectToDevice(deviceId);
-      // After connection is successful, automatically select the printer
       onPrinterSelected();
     } catch (error) {
       console.error('Error connecting to device:', error);
@@ -97,7 +92,6 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Helper function to get signal quality text
   const getSignalQualityText = (rssi?: number) => {
     if (rssi === undefined) return 'Unknown';
     if (rssi > -60) return 'Excellent';
@@ -204,9 +198,8 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                             <span>{device.name || 'Unknown Device'}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            {/* Show signal strength for each device */}
                             <BluetoothSignalStrength 
-                              rssi={deviceRSSI[device.id] || device.rssi} 
+                              rssi={deviceRSSI[device.id]} 
                             />
                             {isConnecting && selectedDevice?.id === device.id ? (
                               <Spinner className="h-3 w-3 text-primary" />

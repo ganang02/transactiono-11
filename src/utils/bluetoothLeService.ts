@@ -228,9 +228,9 @@ export class BluetoothLeService {
     }
   }
 
-  public async readRSSI(deviceId: string): Promise<number> {
+  public async readRssi(deviceId: string): Promise<number> {
     try {
-      const result = await BluetoothLe.readRSSI({
+      const result = await BluetoothLe.readRssi({
         deviceId
       });
       
