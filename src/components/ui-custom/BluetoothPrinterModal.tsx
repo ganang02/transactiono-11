@@ -1,22 +1,28 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { SlideUpTransition } from '@/hooks/useTransition';
 import { useBluetoothPrinter } from '@/hooks/useBluetoothPrinter';
-import { X, Bluetooth, Printer, Check, RefreshCw } from 'lucide-react';
+import { X, Bluetooth, Printer, Check, RefreshCw, Eye } from 'lucide-react';
 import GlassCard from './GlassCard';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ReceiptPreview from './ReceiptPreview';
 
 interface BluetoothPrinterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPrinterSelected: () => void;
+  previewTransaction?: any;
+  previewStoreInfo?: any;
 }
 
 const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
   isOpen,
   onClose,
   onPrinterSelected,
+  previewTransaction,
+  previewStoreInfo,
 }) => {
   const {
     isScanning,
@@ -26,6 +32,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
     connectToDevice,
     disconnectFromDevice,
   } = useBluetoothPrinter();
+  const [activeTab, setActiveTab] = useState<string>('connect');
 
   // Auto scan when the modal is opened
   useEffect(() => {
@@ -34,6 +41,13 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
     }
   }, [isOpen, scanForDevices]);
 
+  // Switch to preview tab if available
+  useEffect(() => {
+    if (previewTransaction && previewStoreInfo) {
+      setActiveTab('preview');
+    }
+  }, [previewTransaction, previewStoreInfo]);
+
   const handleScan = async () => {
     try {
       await scanForDevices();
@@ -41,6 +55,8 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
       console.error('Error scanning for devices:', error);
     }
   };
+
+  const showPreview = previewTransaction && previewStoreInfo;
 
   if (!isOpen) return null;
 
@@ -51,7 +67,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
           <div className="p-4 border-b flex justify-between items-center">
             <div className="flex items-center gap-2">
               <Bluetooth className="h-5 w-5 text-primary" />
-              <h2 className="font-medium">Connect to Printer</h2>
+              <h2 className="font-medium">Printer Settings</h2>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-4 w-4" />
@@ -59,72 +75,106 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
           </div>
           
           <div className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-muted-foreground">Available printers</p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleScan} 
-                disabled={isScanning}
-                className="h-8"
-              >
-                {isScanning ? (
-                  <>
-                    <Spinner className="mr-2 h-3 w-3" />
-                    Scanning...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="mr-1 h-3 w-3" />
-                    Refresh
-                  </>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="connect" className="flex items-center gap-1">
+                  <Bluetooth className="h-4 w-4" />
+                  Connect
+                </TabsTrigger>
+                {showPreview && (
+                  <TabsTrigger value="preview" className="flex items-center gap-1">
+                    <Eye className="h-4 w-4" />
+                    Preview
+                  </TabsTrigger>
                 )}
-              </Button>
-            </div>
-            
-            {isScanning ? (
-              <div className="py-8 flex flex-col items-center justify-center">
-                <Spinner className="h-8 w-8 mb-2" />
-                <p className="text-sm text-muted-foreground">Scanning for printers...</p>
-              </div>
-            ) : devices.length > 0 ? (
-              <div className="space-y-2 max-h-60 overflow-auto">
-                {devices.map((device) => (
-                  <div 
-                    key={device.id}
-                    className={`p-3 rounded-lg border ${
-                      selectedDevice?.id === device.id 
-                        ? 'bg-primary/10 border-primary' 
-                        : 'hover:bg-muted/50'
-                    } cursor-pointer transition-colors`}
-                    onClick={() => connectToDevice(device.id)}
+              </TabsList>
+              
+              <TabsContent value="connect">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm text-muted-foreground">Available printers</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleScan} 
+                    disabled={isScanning}
+                    className="h-8"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Printer className="h-4 w-4 text-muted-foreground" />
-                        <span>{device.name}</span>
+                    {isScanning ? (
+                      <>
+                        <Spinner className="mr-2 h-3 w-3" />
+                        Scanning...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-1 h-3 w-3" />
+                        Refresh
+                      </>
+                    )}
+                  </Button>
+                </div>
+                
+                {isScanning ? (
+                  <div className="py-8 flex flex-col items-center justify-center">
+                    <Spinner className="h-8 w-8 mb-2" />
+                    <p className="text-sm text-muted-foreground">Scanning for printers...</p>
+                  </div>
+                ) : devices.length > 0 ? (
+                  <div className="space-y-2 max-h-60 overflow-auto">
+                    {devices.map((device) => (
+                      <div 
+                        key={device.id}
+                        className={`p-3 rounded-lg border ${
+                          selectedDevice?.id === device.id 
+                            ? 'bg-primary/10 border-primary' 
+                            : 'hover:bg-muted/50'
+                        } cursor-pointer transition-colors`}
+                        onClick={() => connectToDevice(device.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Printer className="h-4 w-4 text-muted-foreground" />
+                            <span>{device.name}</span>
+                          </div>
+                          {selectedDevice?.id === device.id && (
+                            <Check className="h-4 w-4 text-primary" />
+                          )}
+                        </div>
                       </div>
-                      {selectedDevice?.id === device.id && (
-                        <Check className="h-4 w-4 text-primary" />
-                      )}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center">
+                    <div className="flex flex-col items-center justify-center">
+                      <Bluetooth className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                      <p className="font-medium">No printers found</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Make sure your printer is turned on and in pairing mode
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                        Note: Web Bluetooth may require special permissions or may not be available in all browsers.
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-8 text-center">
-                <div className="flex flex-col items-center justify-center">
-                  <Bluetooth className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                  <p className="font-medium">No printers found</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Make sure your printer is turned on and in pairing mode
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-                    Note: Web Bluetooth may require special permissions or may not be available in all browsers.
-                  </p>
-                </div>
-              </div>
-            )}
+                )}
+              </TabsContent>
+              
+              {showPreview && (
+                <TabsContent value="preview">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-medium mb-2">Receipt Preview</h3>
+                    <div className="border rounded-md overflow-hidden">
+                      <ReceiptPreview 
+                        transaction={previewTransaction}
+                        storeInfo={previewStoreInfo}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      This is how your receipt will look when printed.
+                    </p>
+                  </div>
+                </TabsContent>
+              )}
+            </Tabs>
             
             <div className="mt-6 space-y-3">
               {selectedDevice ? (
@@ -146,7 +196,9 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                         onPrinterSelected();
                         onClose();
                       }}
+                      disabled={!selectedDevice}
                     >
+                      <Printer className="h-4 w-4 mr-2" />
                       Select Printer
                     </Button>
                   </div>

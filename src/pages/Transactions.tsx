@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { 
   Search, 
@@ -11,38 +10,90 @@ import {
   Clock,
   X,
   ArrowLeft,
-  ShoppingCart
+  ShoppingCart,
+  Printer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GlassCard from "@/components/ui-custom/GlassCard";
 import { SlideUpTransition } from "@/hooks/useTransition";
 import { transactions, formatCurrency, formatDate } from "@/data/mockData";
+import BluetoothPrinterModal from "@/components/ui-custom/BluetoothPrinterModal";
+import { useBluetoothPrinter } from "@/hooks/useBluetoothPrinter";
+import { useQuery } from "@tanstack/react-query";
+import { TransactionsAPI, StoreAPI } from "@/api/api";
+import { toast } from "@/hooks/use-toast";
 
 const Transactions = () => {
   const [search, setSearch] = useState("");
   const [selectedTransaction, setSelectedTransaction] = useState<string | null>(null);
-  const [filteredTransactions, setFilteredTransactions] = useState(transactions);
+  const [showPrinterModal, setShowPrinterModal] = useState(false);
+  
+  const { data: transactionsData, isLoading: isLoadingTransactions } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: TransactionsAPI.getAll,
+  });
+  
+  const { data: storeInfo } = useQuery({
+    queryKey: ['store'],
+    queryFn: StoreAPI.getInfo,
+  });
+  
+  const { 
+    selectedDevice: connectedPrinter,
+    printReceipt
+  } = useBluetoothPrinter();
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const searchTerm = e.target.value.toLowerCase();
-    setSearch(searchTerm);
+  const filteredTransactions = transactionsData
+    ? transactionsData.filter((transaction) =>
+        transaction.id.toLowerCase().includes(search.toLowerCase()) ||
+        transaction.items.some(item => 
+          item.productName.toLowerCase().includes(search.toLowerCase())
+        )
+      )
+    : [];
+
+  const transaction = transactionsData?.find(t => t.id === selectedTransaction);
+
+  const handlePrintReceipt = async () => {
+    if (!transaction || !storeInfo) return;
     
-    if (searchTerm === "") {
-      setFilteredTransactions(transactions);
-    } else {
-      const filtered = transactions.filter(
-        (transaction) =>
-          transaction.id.toLowerCase().includes(searchTerm) ||
-          transaction.items.some(item => 
-            item.productName.toLowerCase().includes(searchTerm)
-          )
-      );
-      setFilteredTransactions(filtered);
+    if (!connectedPrinter) {
+      setShowPrinterModal(true);
+      return;
+    }
+    
+    const receiptData = {
+      storeName: storeInfo.name,
+      storeAddress: storeInfo.address,
+      storeWhatsapp: storeInfo.whatsapp,
+      transactionId: transaction.id,
+      date: formatDate(transaction.date),
+      items: transaction.items.map(item => ({
+        name: item.productName,
+        quantity: item.quantity,
+        price: item.price,
+        subtotal: item.subtotal
+      })),
+      subtotal: transaction.total * 0.9,
+      tax: transaction.total * 0.1,
+      total: transaction.total,
+      paymentMethod: transaction.paymentMethod,
+      amountPaid: transaction.amountPaid,
+      change: transaction.change,
+      notes: storeInfo.notes
+    };
+    
+    try {
+      await printReceipt(receiptData);
+    } catch (error) {
+      toast({
+        title: "Printing failed",
+        description: "Could not print receipt. Please check printer connection.",
+        variant: "destructive"
+      });
     }
   };
-
-  const transaction = transactions.find(t => t.id === selectedTransaction);
 
   return (
     <div className="container px-4 mx-auto max-w-7xl pb-8 animate-fade-in">
@@ -71,9 +122,12 @@ const Transactions = () => {
                       Export
                     </Button>
                     {transaction.receipt && (
-                      <Button className="gap-2">
-                        <Receipt className="h-4 w-4" />
-                        Receipt
+                      <Button 
+                        className="gap-2"
+                        onClick={handlePrintReceipt}
+                      >
+                        <Printer className="h-4 w-4" />
+                        Print Receipt
                       </Button>
                     )}
                   </div>
@@ -247,6 +301,14 @@ const Transactions = () => {
           </GlassCard>
         </>
       )}
+      
+      <BluetoothPrinterModal 
+        isOpen={showPrinterModal}
+        onClose={() => setShowPrinterModal(false)}
+        onPrinterSelected={() => setShowPrinterModal(false)}
+        previewTransaction={transaction}
+        previewStoreInfo={storeInfo}
+      />
     </div>
   );
 };

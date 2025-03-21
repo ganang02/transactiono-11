@@ -31,7 +31,6 @@ interface CartItem {
   quantity: number;
 }
 
-// Define interface for transaction data
 interface TransactionData {
   id?: string;
   date?: string;
@@ -61,6 +60,7 @@ const Cashier = () => {
   const [printReceipt, setPrintReceipt] = useState(true);
   const [searchFocused, setSearchFocused] = useState(false);
   const [showPrinterModal, setShowPrinterModal] = useState(false);
+  const [currentTransaction, setCurrentTransaction] = useState(null);
   
   const { 
     selectedDevice: connectedPrinter,
@@ -68,7 +68,6 @@ const Cashier = () => {
     isPrinting
   } = useBluetoothPrinter();
 
-  // Fetch products data
   const { 
     data: productsData, 
     isLoading: isLoadingProducts,
@@ -78,17 +77,14 @@ const Cashier = () => {
     queryFn: ProductsAPI.getAll,
   });
 
-  // Get store info for receipts
   const { data: storeInfo } = useQuery({
     queryKey: ['store'],
     queryFn: StoreAPI.getInfo,
   });
 
-  // Create transaction mutation
   const createTransactionMutation = useMutation({
     mutationFn: (transactionData: TransactionData) => TransactionsAPI.create(transactionData),
     onSuccess: (data) => {
-      // Update cache
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -98,12 +94,10 @@ const Cashier = () => {
         description: `Transaction #${data.id} successfully recorded`,
       });
       
-      // Print receipt if needed
       if (printReceipt) {
         handlePrintReceipt(data);
       }
       
-      // Reset state
       setCart([]);
       setShowPayment(false);
       setPaymentAmount("");
@@ -126,13 +120,12 @@ const Cashier = () => {
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
   const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const tax = subtotal * 0.1; // 10% tax
+  const tax = subtotal * 0.1;
   const total = subtotal + tax;
   
   const change = paymentAmount ? parseInt(paymentAmount.replace(/[^0-9]/g, "")) - total : 0;
 
   const addToCart = (product) => {
-    // Check if we have enough stock
     if (product.stock <= 0) {
       toast({
         title: "Out of stock",
@@ -147,9 +140,7 @@ const Cashier = () => {
       const existingItem = prevCart.find((item) => item.id === product.id.toString());
       
       if (existingItem) {
-        // Check stock before adding more
-        const currentQtyInCart = existingItem.quantity;
-        if (currentQtyInCart + 1 > product.stock) {
+        if (existingItem.quantity + 1 > product.stock) {
           toast({
             title: "Stock limit reached",
             description: `Only ${product.stock} ${product.name} available in stock`,
@@ -189,7 +180,6 @@ const Cashier = () => {
       return;
     }
     
-    // Check if we have enough stock
     if (productsData) {
       const product = productsData.find(p => p.id === id);
       if (product && quantity > product.stock) {
@@ -233,7 +223,6 @@ const Cashier = () => {
       return;
     }
     
-    // Prepare transaction data
     const transactionData: TransactionData = {
       items: cart.map(item => ({
         productId: item.id,
@@ -250,23 +239,22 @@ const Cashier = () => {
       receipt: printReceipt
     };
     
-    // Add cash-specific details
     if (method === 'cash') {
       transactionData.amountPaid = parseInt(paymentAmount.replace(/[^0-9]/g, ""));
       transactionData.change = change;
     }
     
-    // Process transaction
     createTransactionMutation.mutate(transactionData);
   };
 
-  const handlePrintReceipt = async (transactionData: TransactionData) => {
+  const handlePrintReceipt = async (transactionData) => {
     if (!connectedPrinter) {
       toast({
         title: "Printer not connected",
         description: "Please connect to a printer first",
         variant: "destructive",
       });
+      setCurrentTransaction(transactionData);
       setShowPrinterModal(true);
       return;
     }
@@ -641,6 +629,8 @@ const Cashier = () => {
         isOpen={showPrinterModal}
         onClose={() => setShowPrinterModal(false)}
         onPrinterSelected={() => setShowPrinterModal(false)}
+        previewTransaction={currentTransaction}
+        previewStoreInfo={storeInfo}
       />
     </div>
   );

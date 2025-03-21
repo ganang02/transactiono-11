@@ -1,6 +1,6 @@
 
-import { useState, useCallback } from 'react';
-import { bluetoothPrinter, BluetoothDevice, PrintOptions, ReceiptData } from '@/utils/bluetoothPrinter';
+import { useState, useCallback, useEffect } from 'react';
+import { bluetoothPrinter, BluetoothDevice, ReceiptData } from '@/utils/bluetoothPrinter';
 import { toast } from '@/hooks/use-toast';
 
 export function useBluetoothPrinter() {
@@ -10,7 +10,7 @@ export function useBluetoothPrinter() {
   const [selectedDevice, setSelectedDevice] = useState<BluetoothDevice | null>(null);
 
   // Load saved device from localStorage on initial render
-  useState(() => {
+  useEffect(() => {
     const savedDevice = localStorage.getItem('bluetooth-printer');
     if (savedDevice) {
       try {
@@ -19,7 +19,7 @@ export function useBluetoothPrinter() {
         console.error('Error loading saved printer:', e);
       }
     }
-  });
+  }, []);
 
   const scanForDevices = useCallback(async () => {
     try {
@@ -27,13 +27,14 @@ export function useBluetoothPrinter() {
       const foundDevices = await bluetoothPrinter.scanForDevices();
       setDevices(foundDevices);
       return foundDevices;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error scanning for devices:', error);
       toast({
         title: 'Scanning Failed',
         description: error.message || 'Failed to scan for Bluetooth devices',
         variant: 'destructive',
       });
+      return [];
     } finally {
       setIsScanning(false);
     }
@@ -50,13 +51,14 @@ export function useBluetoothPrinter() {
         description: `Connected to ${connectedDevice.name}`,
       });
       return connectedDevice;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error connecting to device:', error);
       toast({
         title: 'Connection Failed',
         description: error.message || 'Failed to connect to the selected device',
         variant: 'destructive',
       });
+      throw error;
     }
   }, []);
 
@@ -70,7 +72,7 @@ export function useBluetoothPrinter() {
         title: 'Disconnected',
         description: 'Disconnected from printer',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error disconnecting from device:', error);
       toast({
         title: 'Disconnection Failed',
@@ -89,7 +91,7 @@ export function useBluetoothPrinter() {
         description: 'Receipt was successfully sent to the printer',
       });
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error printing receipt:', error);
       toast({
         title: 'Printing Failed',
