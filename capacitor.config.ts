@@ -13,6 +13,14 @@ const config: CapacitorConfig = {
     CapacitorHttp: {
       enabled: true
     },
+    BluetoothLe: {
+      displayStrings: {
+        scanning: "Mencari perangkat...",
+        cancel: "Batal",
+        availableDevices: "Perangkat tersedia",
+        noDeviceFound: "Tidak ada perangkat ditemukan"
+      }
+    },
     SplashScreen: {
       launchShowDuration: 2000,
       backgroundColor: "#F7F8FB",
