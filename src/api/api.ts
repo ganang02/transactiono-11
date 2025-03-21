@@ -1,6 +1,7 @@
 
 import { toast } from "@/hooks/use-toast";
 
+// Use the environment variable or fallback to localhost
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Helper function for API requests
@@ -8,6 +9,7 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
   const url = `${API_URL}${endpoint}`;
   
   try {
+    console.log(`Making request to: ${url}`);
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -19,12 +21,25 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
     const data = await response.json();
     
     if (!response.ok) {
+      toast({
+        title: "Error",
+        description: data.error || 'An error occurred',
+        variant: "destructive",
+      });
       throw new Error(data.error || 'An error occurred');
     }
     
     return data;
   } catch (error) {
     console.error(`API Error (${endpoint}):`, error);
+    // Show specific network errors for mobile debugging
+    if (error instanceof TypeError && error.message.includes('Network')) {
+      toast({
+        title: "Network Error",
+        description: "Could not connect to the server. Please check your network connection and server URL.",
+        variant: "destructive",
+      });
+    }
     throw error;
   }
 }

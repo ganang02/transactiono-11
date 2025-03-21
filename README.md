@@ -48,30 +48,44 @@ A simple POS (Point of Sale) system with MySQL database integration.
    npm run dev
    ```
 
-### Build for Android/iOS:
+### Build APK for Android:
 
 1. Build the web app:
    ```
    npm run build
    ```
 
-2. Add Android platform:
+2. Add Android platform (if not already added):
    ```
    npx cap add android
    ```
 
-3. Build the Android app:
+3. Update Android native project with latest web build:
    ```
-   npx cap sync
+   npx cap sync android
+   ```
+
+4. Open in Android Studio to build the APK:
+   ```
    npx cap open android
    ```
 
-4. For iOS (requires macOS):
+5. In Android Studio:
+   - Wait for Gradle sync to finish
+   - From the menu, select Build > Build Bundle(s) / APK(s) > Build APK(s)
+   - The APK will be generated in android/app/build/outputs/apk/debug/
+
+6. To install directly on a connected device:
    ```
-   npx cap add ios
-   npx cap sync
-   npx cap open ios
+   npx cap run android
    ```
+
+### Configure Backend for Production:
+
+When deploying the APK, make sure to update the API URL in src/.env to point to your production server:
+```
+VITE_API_URL=https://your-production-server.com/api
+```
 
 ## Features
 
