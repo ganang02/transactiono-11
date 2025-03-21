@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { SlideUpTransition } from '@/hooks/useTransition';
 import { useBluetoothPrinter } from '@/hooks/useBluetoothPrinter';
-import { X, Bluetooth, Printer, Check, RefreshCw, Eye } from 'lucide-react';
+import { X, Bluetooth, Printer, Check, RefreshCw, Eye, AlertTriangle } from 'lucide-react';
 import GlassCard from './GlassCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReceiptPreview from './ReceiptPreview';
 import { toast } from '@/hooks/use-toast';
+import { Capacitor } from '@capacitor/core';
 
 interface BluetoothPrinterModalProps {
   isOpen: boolean;
@@ -33,16 +34,27 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
     connectToDevice,
     disconnectFromDevice,
     isConnecting,
+    permissionsGranted,
+    checkBluetoothPermissions,
   } = useBluetoothPrinter();
   const [activeTab, setActiveTab] = useState<string>('connect');
   const [scanAttempted, setScanAttempted] = useState<boolean>(false);
+  const isNative = Capacitor.isNativePlatform();
 
   // Auto scan when the modal is opened
   useEffect(() => {
     if (isOpen) {
-      handleScan();
+      if (permissionsGranted) {
+        handleScan();
+      } else if (isNative) {
+        checkBluetoothPermissions().then(() => {
+          handleScan();
+        });
+      } else {
+        handleScan();
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, permissionsGranted]);
 
   // Switch to preview tab if available
   useEffect(() => {
@@ -94,6 +106,27 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
           </div>
           
           <div className="p-6">
+            {isNative && !permissionsGranted && (
+              <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-md flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-sm">Bluetooth permissions required</p>
+                  <p className="text-xs text-muted-foreground">
+                    Please grant Bluetooth and Location permissions in your device settings to use Bluetooth printing.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2 h-8 text-xs"
+                    onClick={checkBluetoothPermissions}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Check Permissions
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-4">
                 <TabsTrigger value="connect" className="flex items-center gap-1">
@@ -115,7 +148,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                     variant="outline" 
                     size="sm" 
                     onClick={handleScan} 
-                    disabled={isScanning}
+                    disabled={isScanning || (isNative && !permissionsGranted)}
                     className="h-8"
                   >
                     {isScanning ? (

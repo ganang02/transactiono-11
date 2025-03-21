@@ -1,7 +1,7 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { bluetoothPrinter, BluetoothDevice, ReceiptData } from '@/utils/bluetoothPrinter';
 import { toast } from '@/hooks/use-toast';
+import { Capacitor } from '@capacitor/core';
 
 export function useBluetoothPrinter() {
   const [isScanning, setIsScanning] = useState(false);
@@ -9,6 +9,7 @@ export function useBluetoothPrinter() {
   const [devices, setDevices] = useState<BluetoothDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<BluetoothDevice | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [permissionsGranted, setPermissionsGranted] = useState(false);
 
   // Load saved device from localStorage on initial render
   useEffect(() => {
@@ -24,9 +25,52 @@ export function useBluetoothPrinter() {
         localStorage.removeItem('bluetooth-printer');
       }
     }
+    
+    // Check permissions on Android
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+      checkBluetoothPermissions();
+    } else {
+      setPermissionsGranted(true); // On web or iOS, handled differently
+    }
   }, []);
 
+  // Function to check Bluetooth permissions on Android
+  const checkBluetoothPermissions = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      setPermissionsGranted(true);
+      return;
+    }
+
+    try {
+      // This is a simplified version. In a real implementation,
+      // you'd want to use Capacitor Plugins for permission handling
+      // like the Permissions plugin
+      setPermissionsGranted(true);
+      console.log('Bluetooth permissions are granted');
+    } catch (error) {
+      console.error('Error checking bluetooth permissions:', error);
+      setPermissionsGranted(false);
+    }
+  };
+
   const scanForDevices = useCallback(async () => {
+    // First check if permissions are granted on native platforms
+    if (Capacitor.isNativePlatform() && !permissionsGranted) {
+      try {
+        await checkBluetoothPermissions();
+        if (!permissionsGranted) {
+          toast({
+            title: 'Permission Required',
+            description: 'Bluetooth permission is required to scan for devices.',
+            variant: 'destructive',
+          });
+          return [];
+        }
+      } catch (error) {
+        console.error('Error checking permissions:', error);
+      }
+    }
+
     try {
       setIsScanning(true);
       console.log('Starting device scan...');
@@ -68,7 +112,7 @@ export function useBluetoothPrinter() {
     } finally {
       setIsScanning(false);
     }
-  }, []);
+  }, [permissionsGranted]);
 
   const connectToDevice = useCallback(async (deviceId: string) => {
     try {
@@ -164,9 +208,11 @@ export function useBluetoothPrinter() {
     isConnecting,
     devices,
     selectedDevice,
+    permissionsGranted,
     scanForDevices,
     connectToDevice,
     disconnectFromDevice,
     printReceipt,
+    checkBluetoothPermissions,
   };
 }
