@@ -62,7 +62,8 @@ export class BluetoothLeService {
     }
     
     try {
-      await BluetoothLe.startLEScan({
+      // Use requestLEScan instead of startLEScan
+      await BluetoothLe.requestLEScan({
         services: [], // Scan for all services
         allowDuplicates: false,
         scanMode: 'lowLatency',
@@ -153,12 +154,14 @@ export class BluetoothLeService {
 
   public async getCharacteristics(deviceId: string, serviceUUID: string): Promise<BleCharacteristic[]> {
     try {
-      const result = await BluetoothLe.getCharacteristics({
+      // Get characteristics directly from the service
+      const result = await BluetoothLe.getService({
         deviceId,
         service: serviceUUID,
       });
       
-      return result.characteristics;
+      // The service should include its characteristics
+      return result.service.characteristics || [];
     } catch (error) {
       console.error('Error getting characteristics:', error);
       throw error;
@@ -182,10 +185,14 @@ export class BluetoothLeService {
   }
 
   public listenToCharacteristic(deviceId: string, serviceUUID: string, characteristicUUID: string, callback: (data: any) => void) {
-    const handler = BluetoothLe.addListener(`characteristicChanged`, callback);
+    // First add the listener and save the returned handle
+    const listenerPromise = BluetoothLe.addListener('characteristicChanged', callback);
     
-    return () => {
-      handler.remove();
+    // Return a function that will remove the listener when called
+    return async () => {
+      // Await and then call remove on the handle
+      const handle = await listenerPromise;
+      handle.remove();
     };
   }
 
