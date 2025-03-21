@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -32,6 +31,27 @@ interface CartItem {
   quantity: number;
 }
 
+// Define interface for transaction data to fix the type errors
+interface TransactionData {
+  id?: string;
+  date?: string;
+  items: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    price: number;
+    subtotal: number;
+  }[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  paymentMethod: 'cash' | 'card';
+  status: string;
+  receipt: boolean;
+  amountPaid?: number;
+  change?: number;
+}
+
 // Simulated API functions for real-time data
 const fetchProducts = async () => {
   // Simulate API delay
@@ -39,7 +59,7 @@ const fetchProducts = async () => {
   return products;
 };
 
-const createTransaction = async (transactionData: any) => {
+const createTransaction = async (transactionData: TransactionData) => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 1500));
   
@@ -188,7 +208,7 @@ const Cashier = () => {
     }
     
     // Prepare transaction data
-    const transactionData = {
+    const transactionData: TransactionData = {
       items: cart.map(item => ({
         productId: item.id,
         productName: item.name,
@@ -214,7 +234,7 @@ const Cashier = () => {
     createTransactionMutation.mutate(transactionData);
   };
 
-  const handlePrintReceipt = async (transactionData: any) => {
+  const handlePrintReceipt = async (transactionData: TransactionData) => {
     if (!connectedPrinter) {
       toast({
         title: "Printer not connected",
@@ -229,7 +249,7 @@ const Cashier = () => {
       storeName: storeInfo.name,
       storeAddress: storeInfo.address,
       storeWhatsapp: storeInfo.whatsapp,
-      transactionId: transactionData.id,
+      transactionId: transactionData.id || "",
       date: new Date().toLocaleString('id-ID'),
       items: transactionData.items.map(item => ({
         name: item.productName,
