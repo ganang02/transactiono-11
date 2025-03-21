@@ -5,11 +5,13 @@ import { cn } from '@/lib/utils';
 interface SpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
   size?: 'sm' | 'md' | 'lg';
+  variant?: 'primary' | 'secondary' | 'success' | 'destructive';
 }
 
 export const Spinner: React.FC<SpinnerProps> = ({ 
   className,
   size = 'md',
+  variant = 'primary',
   ...props 
 }) => {
   const sizeClasses = {
@@ -17,12 +19,20 @@ export const Spinner: React.FC<SpinnerProps> = ({
     md: 'h-6 w-6 border-2',
     lg: 'h-8 w-8 border-3',
   };
+  
+  const variantClasses = {
+    primary: 'text-primary',
+    secondary: 'text-secondary',
+    success: 'text-green-500',
+    destructive: 'text-destructive',
+  };
 
   return (
     <div
       className={cn(
-        'inline-block animate-spin rounded-full border-solid border-current border-t-transparent text-primary',
+        'inline-block animate-spin rounded-full border-solid border-current border-t-transparent',
         sizeClasses[size],
+        variantClasses[variant],
         className
       )}
       role="status"
