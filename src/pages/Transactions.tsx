@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { 
   Search, 
@@ -43,6 +44,11 @@ const Transactions = () => {
     selectedDevice: connectedPrinter,
     printReceipt
   } = useBluetoothPrinter();
+
+  // Add the missing handleSearch function
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+  };
 
   const filteredTransactions = transactionsData
     ? transactionsData.filter((transaction) =>
