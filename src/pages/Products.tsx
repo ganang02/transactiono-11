@@ -9,7 +9,10 @@ import {
   Trash2,
   Filter,
   ArrowUpDown,
-  Save
+  Save,
+  FileDown,
+  Calendar,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,13 +23,35 @@ import { toast } from "@/hooks/use-toast";
 import { Spinner } from "@/components/ui/spinner";
 import { ProductsAPI } from "@/api/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { DateRangePicker } from "@/components/ui-custom/DateRangePicker";
+import { addDays, format, isWithinInterval, parseISO } from "date-fns";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import ProductFilters from "@/components/products/ProductFilters";
+import ExportProductsModal from "@/components/products/ExportProductsModal";
+import { EditProductModal } from "@/components/products/EditProductModal";
 
 const Products = () => {
   const [search, setSearch] = useState("");
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showEditProduct, setShowEditProduct] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [filteredProducts, setFilteredProducts] = useState([]);
+  const [editingProduct, setEditingProduct] = useState(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [sortField, setSortField] = useState<"name" | "price" | "stock" | null>(null);
+  const [dateRange, setDateRange] = useState({
+    from: null,
+    to: null,
+  });
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [stockFilter, setStockFilter] = useState<"all" | "low" | "out">("all");
   
   // New product form state
   const [newProduct, setNewProduct] = useState({
@@ -50,16 +75,36 @@ const Products = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast({
-        title: "Product added",
-        description: "The product has been added successfully",
+        title: "Produk ditambahkan",
+        description: "Produk berhasil ditambahkan",
       });
       setShowAddProduct(false);
       resetForm();
     },
     onError: (error) => {
       toast({
-        title: "Failed to add product",
-        description: error.message || "An error occurred while adding the product",
+        title: "Gagal menambahkan produk",
+        description: error.message || "Terjadi kesalahan saat menambahkan produk",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update product mutation
+  const updateProductMutation = useMutation({
+    mutationFn: (data) => ProductsAPI.update(data.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast({
+        title: "Produk diperbarui",
+        description: "Produk berhasil diperbarui",
+      });
+      setShowEditProduct(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Gagal memperbarui produk",
+        description: error.message || "Terjadi kesalahan saat memperbarui produk",
         variant: "destructive",
       });
     }
@@ -71,14 +116,14 @@ const Products = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast({
-        title: "Product deleted",
-        description: "The product has been deleted successfully",
+        title: "Produk dihapus",
+        description: "Produk berhasil dihapus",
       });
     },
     onError: (error) => {
       toast({
-        title: "Failed to delete product",
-        description: error.message || "An error occurred while deleting the product",
+        title: "Gagal menghapus produk",
+        description: error.message || "Terjadi kesalahan saat menghapus produk",
         variant: "destructive",
       });
     }
@@ -97,22 +142,66 @@ const Products = () => {
     };
   }, []);
 
-  // Update filtered products when products or search change
+  // Update filtered products when products or search or filters change
   useEffect(() => {
     if (products) {
-      if (search === "") {
-        setFilteredProducts(products);
-      } else {
+      let filtered = [...products];
+
+      // Apply search filter
+      if (search !== "") {
         const searchTerm = search.toLowerCase();
-        const filtered = products.filter(
+        filtered = filtered.filter(
           (product) =>
             product.name.toLowerCase().includes(searchTerm) ||
             product.category.toLowerCase().includes(searchTerm)
         );
-        setFilteredProducts(filtered);
       }
+
+      // Apply category filter
+      if (categoryFilter) {
+        filtered = filtered.filter(product => product.category === categoryFilter);
+      }
+
+      // Apply stock filter
+      if (stockFilter === "low") {
+        filtered = filtered.filter(product => product.stock > 0 && product.stock < 10);
+      } else if (stockFilter === "out") {
+        filtered = filtered.filter(product => product.stock === 0);
+      }
+
+      // Apply date range filter if available
+      if (dateRange.from && dateRange.to) {
+        filtered = filtered.filter(product => {
+          // Assuming product has a createdAt field
+          if (product.createdAt) {
+            const productDate = parseISO(product.createdAt);
+            return isWithinInterval(productDate, { 
+              start: dateRange.from, 
+              end: dateRange.to 
+            });
+          }
+          return true; // Include products without dates
+        });
+      }
+
+      // Apply sorting
+      if (sortField && sortOrder) {
+        filtered.sort((a, b) => {
+          if (sortField === "name") {
+            return sortOrder === "asc" 
+              ? a.name.localeCompare(b.name) 
+              : b.name.localeCompare(a.name);
+          } else if (sortField === "price") {
+            return sortOrder === "asc" ? a.price - b.price : b.price - a.price;
+          } else {
+            return sortOrder === "asc" ? a.stock - b.stock : b.stock - a.stock;
+          }
+        });
+      }
+
+      setFilteredProducts(filtered);
     }
-  }, [products, search]);
+  }, [products, search, sortField, sortOrder, categoryFilter, stockFilter, dateRange]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
@@ -134,28 +223,14 @@ const Products = () => {
     
     setSortField(field);
     setSortOrder(order);
-    
-    const sorted = [...filteredProducts].sort((a, b) => {
-      if (field === "name") {
-        return order === "asc" 
-          ? a.name.localeCompare(b.name) 
-          : b.name.localeCompare(a.name);
-      } else if (field === "price") {
-        return order === "asc" ? a.price - b.price : b.price - a.price;
-      } else {
-        return order === "asc" ? a.stock - b.stock : b.stock - a.stock;
-      }
-    });
-    
-    setFilteredProducts(sorted);
   };
 
   const handleAddProduct = () => {
     // Validate form
     if (!newProduct.name || !newProduct.price || !newProduct.stock || !newProduct.category) {
       toast({
-        title: "Missing fields",
-        description: "Please fill in all required fields",
+        title: "Data tidak lengkap",
+        description: "Semua field harus diisi",
         variant: "destructive",
       });
       return;
@@ -171,6 +246,15 @@ const Products = () => {
     
     // Call API using mutation
     createProductMutation.mutate(productToCreate);
+  };
+
+  const handleEditProduct = (product) => {
+    setEditingProduct(product);
+    setShowEditProduct(true);
+  };
+
+  const handleUpdateProduct = (updatedProduct) => {
+    updateProductMutation.mutate(updatedProduct);
   };
 
   const resetForm = () => {
@@ -191,10 +275,16 @@ const Products = () => {
   };
 
   const handleDeleteProduct = (productId) => {
-    if (confirm("Are you sure you want to delete this product?")) {
+    if (confirm("Apakah Anda yakin ingin menghapus produk ini?")) {
       deleteProductMutation.mutate(productId);
     }
   };
+
+  // Get unique categories for filter
+  const categories = React.useMemo(() => {
+    if (!products) return [];
+    return Array.from(new Set(products.map(product => product.category))).filter(Boolean);
+  }, [products]);
 
   if (isError) {
     return (
@@ -217,20 +307,36 @@ const Products = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search products..."
+            placeholder="Cari produk..."
             value={search}
             onChange={handleSearch}
             className="pl-9 w-full bg-background/50 backdrop-blur-sm"
           />
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <Button variant="outline" className="gap-2">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <Button 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => setShowFilters(true)}
+          >
             <Filter className="h-4 w-4" />
             Filter
           </Button>
+          <DateRangePicker 
+            date={dateRange} 
+            onDateChange={setDateRange} 
+          />
+          <Button 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => setShowExport(true)}
+          >
+            <FileDown className="h-4 w-4" />
+            Export
+          </Button>
           <Button onClick={() => setShowAddProduct(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Product
+            Tambah Produk
           </Button>
         </div>
       </div>
@@ -248,24 +354,24 @@ const Products = () => {
                 <tr className="border-b">
                   <th className="py-3 px-4 text-left font-medium text-muted-foreground text-sm">
                     <div className="flex items-center cursor-pointer" onClick={() => handleSort("name")}>
-                      Product
+                      Produk
                       <ArrowUpDown className={`ml-1 h-3.5 w-3.5 ${sortField === "name" ? "text-primary" : ""}`} />
                     </div>
                   </th>
-                  <th className="py-3 px-4 text-left font-medium text-muted-foreground text-sm">Category</th>
+                  <th className="py-3 px-4 text-left font-medium text-muted-foreground text-sm">Kategori</th>
                   <th className="py-3 px-4 text-right font-medium text-muted-foreground text-sm">
                     <div className="flex items-center justify-end cursor-pointer" onClick={() => handleSort("price")}>
-                      Price
+                      Harga
                       <ArrowUpDown className={`ml-1 h-3.5 w-3.5 ${sortField === "price" ? "text-primary" : ""}`} />
                     </div>
                   </th>
                   <th className="py-3 px-4 text-right font-medium text-muted-foreground text-sm">
                     <div className="flex items-center justify-end cursor-pointer" onClick={() => handleSort("stock")}>
-                      Stock
+                      Stok
                       <ArrowUpDown className={`ml-1 h-3.5 w-3.5 ${sortField === "stock" ? "text-primary" : ""}`} />
                     </div>
                   </th>
-                  <th className="py-3 px-4 text-center font-medium text-muted-foreground text-sm">Actions</th>
+                  <th className="py-3 px-4 text-center font-medium text-muted-foreground text-sm">Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -285,10 +391,19 @@ const Products = () => {
                         </td>
                         <td className="py-3 px-4 text-sm">{product.category}</td>
                         <td className="py-3 px-4 text-right text-sm">{formatCurrency(product.price)}</td>
-                        <td className="py-3 px-4 text-right text-sm">{product.stock}</td>
+                        <td className="py-3 px-4 text-right text-sm">
+                          <span className={`${product.stock <= 5 ? 'text-destructive' : product.stock <= 10 ? 'text-yellow-500' : ''}`}>
+                            {product.stock}
+                          </span>
+                        </td>
                         <td className="py-3 px-4">
                           <div className="flex justify-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => handleEditProduct(product)}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button 
@@ -310,7 +425,7 @@ const Products = () => {
                     <td colSpan={5} className="py-8 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <Package className="h-8 w-8 text-muted-foreground mb-2" />
-                        <p className="text-muted-foreground">No products found</p>
+                        <p className="text-muted-foreground">Tidak ada produk ditemukan</p>
                       </div>
                     </td>
                   </tr>
@@ -327,55 +442,55 @@ const Products = () => {
           <SlideUpTransition show={true}>
             <GlassCard className="w-full max-w-md">
               <div className="p-4 border-b">
-                <h2 className="font-medium">Add New Product</h2>
+                <h2 className="font-medium">Tambah Produk Baru</h2>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Product Name</label>
+                  <label className="text-sm font-medium mb-1 block">Nama Produk</label>
                   <Input 
                     name="name" 
                     value={newProduct.name} 
                     onChange={handleInputChange} 
-                    placeholder="Enter product name" 
+                    placeholder="Masukkan nama produk" 
                   />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium mb-1 block">Price</label>
+                    <label className="text-sm font-medium mb-1 block">Harga</label>
                     <Input 
                       name="price" 
                       value={newProduct.price} 
                       onChange={handleInputChange} 
-                      placeholder="Enter price" 
+                      placeholder="Masukkan harga" 
                       type="number"
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-1 block">Stock</label>
+                    <label className="text-sm font-medium mb-1 block">Stok</label>
                     <Input 
                       name="stock" 
                       value={newProduct.stock} 
                       onChange={handleInputChange} 
-                      placeholder="Enter stock" 
+                      placeholder="Masukkan stok" 
                       type="number"
                     />
                   </div>
                 </div>
                 
                 <div>
-                  <label className="text-sm font-medium mb-1 block">Category</label>
+                  <label className="text-sm font-medium mb-1 block">Kategori</label>
                   <Input 
                     name="category" 
                     value={newProduct.category} 
                     onChange={handleInputChange} 
-                    placeholder="Enter category" 
+                    placeholder="Masukkan kategori" 
                   />
                 </div>
                 
                 <div className="pt-4 flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowAddProduct(false)}>
-                    Cancel
+                    Batal
                   </Button>
                   <Button 
                     onClick={handleAddProduct}
@@ -384,10 +499,10 @@ const Products = () => {
                     {createProductMutation.isPending ? (
                       <>
                         <Spinner size="sm" className="mr-2" />
-                        Adding...
+                        Menambahkan...
                       </>
                     ) : (
-                      "Add Product"
+                      "Tambah Produk"
                     )}
                   </Button>
                 </div>
@@ -395,6 +510,36 @@ const Products = () => {
             </GlassCard>
           </SlideUpTransition>
         </div>
+      )}
+
+      {/* Edit Product Modal */}
+      {showEditProduct && editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          onClose={() => setShowEditProduct(false)}
+          onSave={handleUpdateProduct}
+          isLoading={updateProductMutation.isPending}
+        />
+      )}
+
+      {/* Filter Modal */}
+      {showFilters && (
+        <ProductFilters
+          categories={categories}
+          selectedCategory={categoryFilter}
+          onCategoryChange={setCategoryFilter}
+          stockFilter={stockFilter}
+          onStockFilterChange={setStockFilter}
+          onClose={() => setShowFilters(false)}
+        />
+      )}
+
+      {/* Export Modal */}
+      {showExport && (
+        <ExportProductsModal
+          products={filteredProducts}
+          onClose={() => setShowExport(false)}
+        />
       )}
     </div>
   );
