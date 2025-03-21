@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BluetoothLeService, bluetoothLeService, BluetoothLeDevice } from '@/utils/bluetoothLeService';
 import { BleService, BleCharacteristic } from '@capacitor-community/bluetooth-le';
 import { toast } from '@/hooks/use-toast';
@@ -14,6 +14,9 @@ export function useBluetoothLE() {
   const [characteristics, setCharacteristics] = useState<{[serviceId: string]: BleCharacteristic[]}>({}); 
   const [permissionsGranted, setPermissionsGranted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [deviceRSSI, setDeviceRSSI] = useState<{[deviceId: string]: number}>({});
+  
+  const rssiIntervalRef = useRef<number | null>(null);
 
   // Initialize Bluetooth LE
   useEffect(() => {
@@ -79,11 +82,29 @@ export function useBluetoothLE() {
         
         setDevices(prevDevices => {
           // Check if device already exists
-          const exists = prevDevices.some(d => d.deviceId === newDevice.deviceId);
-          if (!exists) {
+          const existingDeviceIndex = prevDevices.findIndex(d => d.deviceId === newDevice.deviceId);
+          if (existingDeviceIndex >= 0) {
+            // Update the existing device with new RSSI
+            const updatedDevices = [...prevDevices];
+            updatedDevices[existingDeviceIndex] = {
+              ...updatedDevices[existingDeviceIndex],
+              rssi: newDevice.rssi
+            };
+            // Also update the RSSI map
+            setDeviceRSSI(prev => ({
+              ...prev,
+              [newDevice.deviceId]: newDevice.rssi || -100
+            }));
+            return updatedDevices;
+          } else {
+            // Add new device
+            // Update the RSSI map
+            setDeviceRSSI(prev => ({
+              ...prev,
+              [newDevice.deviceId]: newDevice.rssi || -100
+            }));
             return [...prevDevices, newDevice];
           }
-          return prevDevices;
         });
       };
       
@@ -119,6 +140,37 @@ export function useBluetoothLE() {
     }
   }, [isScanning]);
 
+  // Read RSSI of connected device periodically
+  const startRSSIMonitoring = useCallback((deviceId: string) => {
+    if (!deviceId) return;
+    
+    // Clear existing interval if any
+    if (rssiIntervalRef.current) {
+      clearInterval(rssiIntervalRef.current);
+      rssiIntervalRef.current = null;
+    }
+    
+    // Set up new interval
+    rssiIntervalRef.current = window.setInterval(async () => {
+      try {
+        const rssi = await bluetoothLeService.readRSSI(deviceId);
+        setDeviceRSSI(prev => ({
+          ...prev,
+          [deviceId]: rssi
+        }));
+      } catch (error) {
+        console.error('Error reading RSSI:', error);
+      }
+    }, 5000); // Update every 5 seconds
+    
+    return () => {
+      if (rssiIntervalRef.current) {
+        clearInterval(rssiIntervalRef.current);
+        rssiIntervalRef.current = null;
+      }
+    };
+  }, []);
+
   // Connect to a device
   const connectToDevice = useCallback(async (deviceId: string) => {
     try {
@@ -129,6 +181,9 @@ export function useBluetoothLE() {
       const device = devices.find(d => d.deviceId === deviceId);
       if (device) {
         setConnectedDevice(device);
+        
+        // Start monitoring RSSI
+        startRSSIMonitoring(deviceId);
         
         // Discover services
         const discoveredServices = await bluetoothLeService.discover(deviceId);
@@ -162,12 +217,18 @@ export function useBluetoothLE() {
     } finally {
       setIsConnecting(false);
     }
-  }, [devices]);
+  }, [devices, startRSSIMonitoring]);
 
   // Disconnect from device
   const disconnectFromDevice = useCallback(async () => {
     if (connectedDevice) {
       try {
+        // Stop RSSI monitoring
+        if (rssiIntervalRef.current) {
+          clearInterval(rssiIntervalRef.current);
+          rssiIntervalRef.current = null;
+        }
+        
         await bluetoothLeService.disconnectFromDevice(connectedDevice.deviceId);
         setConnectedDevice(null);
         setServices([]);
@@ -291,6 +352,12 @@ export function useBluetoothLE() {
       if (connectedDevice) {
         bluetoothLeService.disconnectFromDevice(connectedDevice.deviceId).catch(console.error);
       }
+      
+      // Clear RSSI monitoring interval
+      if (rssiIntervalRef.current) {
+        clearInterval(rssiIntervalRef.current);
+        rssiIntervalRef.current = null;
+      }
     };
   }, [isScanning, connectedDevice]);
 
@@ -303,6 +370,7 @@ export function useBluetoothLE() {
     services,
     characteristics,
     isConnecting,
+    deviceRSSI,
     startScan,
     stopScan,
     connectToDevice,

@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReceiptPreview from './ReceiptPreview';
 import { toast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
+import BluetoothSignalStrength from './BluetoothSignalStrength';
+import { useBluetoothLE } from '@/hooks/useBluetoothLE';
 
 interface BluetoothPrinterModalProps {
   isOpen: boolean;
@@ -37,6 +39,10 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
     permissionsGranted,
     checkBluetoothPermissions,
   } = useBluetoothPrinter();
+  
+  // For RSSI monitoring
+  const { deviceRSSI } = useBluetoothLE();
+  
   const [activeTab, setActiveTab] = useState<string>('connect');
   const [scanAttempted, setScanAttempted] = useState<boolean>(false);
   const isNative = Capacitor.isNativePlatform();
@@ -90,6 +96,16 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
   const showPreview = previewTransaction && previewStoreInfo;
 
   if (!isOpen) return null;
+
+  // Helper function to get signal quality text
+  const getSignalQualityText = (rssi?: number) => {
+    if (rssi === undefined) return 'Unknown';
+    if (rssi > -60) return 'Excellent';
+    if (rssi > -70) return 'Good';
+    if (rssi > -80) return 'Fair';
+    if (rssi > -90) return 'Poor';
+    return 'Very poor';
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -187,11 +203,17 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                             <Printer className="h-4 w-4 text-muted-foreground" />
                             <span>{device.name || 'Unknown Device'}</span>
                           </div>
-                          {isConnecting && selectedDevice?.id === device.id ? (
-                            <Spinner className="h-3 w-3 text-primary" />
-                          ) : selectedDevice?.id === device.id && (
-                            <Check className="h-4 w-4 text-primary" />
-                          )}
+                          <div className="flex items-center gap-2">
+                            {/* Show signal strength for each device */}
+                            <BluetoothSignalStrength 
+                              rssi={deviceRSSI[device.id] || device.rssi} 
+                            />
+                            {isConnecting && selectedDevice?.id === device.id ? (
+                              <Spinner className="h-3 w-3 text-primary" />
+                            ) : selectedDevice?.id === device.id && (
+                              <Check className="h-4 w-4 text-primary" />
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -246,6 +268,11 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                   <p className="text-center text-sm">
                     <span className="inline-block px-2 py-1 rounded bg-primary/10 text-primary">
                       Connected to {selectedDevice.name || 'Unknown Device'}
+                      {deviceRSSI[selectedDevice.id] && (
+                        <span className="ml-2 text-xs">
+                          (Signal: {getSignalQualityText(deviceRSSI[selectedDevice.id])})
+                        </span>
+                      )}
                     </span>
                   </p>
                   <div className="grid grid-cols-2 gap-3">

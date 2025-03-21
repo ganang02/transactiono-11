@@ -1,4 +1,3 @@
-
 import { BluetoothLe, BleDevice, BleService, BleCharacteristic } from '@capacitor-community/bluetooth-le';
 import { Capacitor } from '@capacitor/core';
 
@@ -225,6 +224,20 @@ export class BluetoothLeService {
       console.log('Notifications stopped');
     } catch (error) {
       console.error('Error stopping notifications:', error);
+      throw error;
+    }
+  }
+
+  public async readRSSI(deviceId: string): Promise<number> {
+    try {
+      const result = await BluetoothLe.readRSSI({
+        deviceId
+      });
+      
+      console.log(`RSSI for device ${deviceId}: ${result.rssi}`);
+      return result.rssi;
+    } catch (error) {
+      console.error('Error reading RSSI:', error);
       throw error;
     }
   }
