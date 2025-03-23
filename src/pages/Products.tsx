@@ -1,17 +1,16 @@
-
 import React, { useState, useEffect } from "react";
 import {
   Search,
   Plus,
+  Filter,
+  Calendar,
+  FileDown,
+  Trash2,
+  ArrowUpDown,
+  Edit,
   Package,
   MoreVertical,
-  Edit,
-  Trash2,
-  Filter,
-  ArrowUpDown,
   Save,
-  FileDown,
-  Calendar,
   X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -179,7 +178,6 @@ const Products = () => {
       // Apply date range filter if available
       if (dateRange?.from && dateRange?.to) {
         filtered = filtered.filter(product => {
-          // Assuming product has a createdAt field
           if (product.createdAt) {
             const productDate = parseISO(product.createdAt);
             return isWithinInterval(productDate, { 
@@ -309,139 +307,124 @@ const Products = () => {
 
   return (
     <div className="container px-4 mx-auto max-w-7xl pb-8 animate-fade-in">
-      <div className="flex flex-col md:flex-row justify-between gap-4 items-center mb-6 mt-6">
-        <div className="relative w-full md:w-auto md:flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      {/* Search bar */}
+      <div className="mt-4 mb-4">
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Cari produk..."
             value={search}
             onChange={handleSearch}
-            className="pl-9 w-full bg-background/50 backdrop-blur-sm"
+            className="pl-10 w-full bg-gray-100/80 border-gray-200 rounded-xl h-12 text-base"
           />
-        </div>
-        <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          <Button 
-            variant="outline" 
-            className="gap-2"
-            onClick={() => setShowFilters(true)}
-          >
-            <Filter className="h-4 w-4" />
-            Filter
-          </Button>
-          <DateRangePicker 
-            date={dateRange} 
-            onDateChange={setDateRange} 
-          />
-          <Button 
-            variant="outline" 
-            className="gap-2"
-            onClick={() => setShowExport(true)}
-          >
-            <FileDown className="h-4 w-4" />
-            Export
-          </Button>
-          <Button onClick={() => setShowAddProduct(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Tambah Produk
-          </Button>
         </div>
       </div>
 
-      <GlassCard className="overflow-hidden">
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <Button 
+          variant="outline" 
+          className="gap-2 bg-white rounded-xl h-12 flex-1 border border-gray-200 shadow-sm"
+          onClick={() => setShowFilters(true)}
+        >
+          <Filter className="h-5 w-5 text-gray-500" />
+          <span className="text-gray-600">Filter</span>
+        </Button>
+        
+        <Button 
+          variant="outline" 
+          className="gap-2 bg-white rounded-xl h-12 flex-1 border border-gray-200 shadow-sm"
+          onClick={() => setDateRange({ 
+            from: new Date(), 
+            to: addDays(new Date(), 7) 
+          })}
+        >
+          <Calendar className="h-5 w-5 text-gray-500" />
+          <span className="text-gray-600">Tanggal</span>
+        </Button>
+        
+        <Button 
+          variant="outline" 
+          className="gap-2 bg-white rounded-xl h-12 flex-1 border border-gray-200 shadow-sm"
+          onClick={() => setShowExport(true)}
+        >
+          <FileDown className="h-5 w-5 text-gray-500" />
+          <span className="text-gray-600">Export</span>
+        </Button>
+      </div>
+
+      {/* Add Product Button */}
+      <Button 
+        className="w-full mb-6 bg-blue-500 hover:bg-blue-600 h-12 rounded-xl flex gap-2 items-center justify-center"
+        onClick={() => setShowAddProduct(true)}
+      >
+        <Plus className="h-5 w-5" />
+        <span className="text-base">Tambah Produk</span>
+      </Button>
+
+      {/* Products Table */}
+      <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
             <Spinner size="lg" />
             <span className="ml-3">Loading products...</span>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="py-3 px-4 text-left font-medium text-muted-foreground text-sm">
-                    <div className="flex items-center cursor-pointer" onClick={() => handleSort("name")}>
-                      Produk
-                      <ArrowUpDown className={`ml-1 h-3.5 w-3.5 ${sortField === "name" ? "text-primary" : ""}`} />
+          <div>
+            {/* Table Header */}
+            <div className="grid grid-cols-12 py-4 px-4 border-b text-gray-500 font-medium text-sm">
+              <div className="col-span-6">Kategori</div>
+              <div className="col-span-3 flex items-center justify-end cursor-pointer" onClick={() => handleSort("price")}>
+                Harga
+                <ArrowUpDown className={`ml-1 h-3.5 w-3.5 ${sortField === "price" ? "text-blue-500" : ""}`} />
+              </div>
+              <div className="col-span-2 flex items-center justify-end cursor-pointer" onClick={() => handleSort("stock")}>
+                Stok
+                <ArrowUpDown className={`ml-1 h-3.5 w-3.5 ${sortField === "stock" ? "text-blue-500" : ""}`} />
+              </div>
+              <div className="col-span-1 text-center">Aksi</div>
+            </div>
+            
+            {/* Table Body */}
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map((product, index) => (
+                <SlideUpTransition key={product.id} show={true} duration={300 + index * 30}>
+                  <div className="grid grid-cols-12 py-4 px-4 border-b hover:bg-gray-50 transition-colors items-center">
+                    <div className="col-span-6">
+                      <div className="font-medium">{product.name}</div>
+                      <div className="text-sm text-gray-500">{product.category}</div>
                     </div>
-                  </th>
-                  <th className="py-3 px-4 text-left font-medium text-muted-foreground text-sm">Kategori</th>
-                  <th className="py-3 px-4 text-right font-medium text-muted-foreground text-sm">
-                    <div className="flex items-center justify-end cursor-pointer" onClick={() => handleSort("price")}>
-                      Harga
-                      <ArrowUpDown className={`ml-1 h-3.5 w-3.5 ${sortField === "price" ? "text-primary" : ""}`} />
+                    <div className="col-span-3 text-right">{formatCurrency(product.price)}</div>
+                    <div className="col-span-2 text-right">
+                      <span className={`${product.stock <= 5 ? 'text-red-500' : product.stock <= 10 ? 'text-yellow-500' : ''}`}>
+                        {product.stock}
+                      </span>
                     </div>
-                  </th>
-                  <th className="py-3 px-4 text-right font-medium text-muted-foreground text-sm">
-                    <div className="flex items-center justify-end cursor-pointer" onClick={() => handleSort("stock")}>
-                      Stok
-                      <ArrowUpDown className={`ml-1 h-3.5 w-3.5 ${sortField === "stock" ? "text-primary" : ""}`} />
+                    <div className="col-span-1 flex justify-center">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeleteProduct(product.id)}
+                        disabled={deleteProductMutation.isPending}
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
                     </div>
-                  </th>
-                  <th className="py-3 px-4 text-center font-medium text-muted-foreground text-sm">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProducts.length > 0 ? (
-                  filteredProducts.map((product, index) => (
-                    <SlideUpTransition key={product.id} show={true} duration={300 + index * 30}>
-                      <tr className="border-b hover:bg-muted/20 transition-colors">
-                        <td className="py-3 px-4">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 rounded-md overflow-hidden bg-primary/10 mr-3 flex-shrink-0 flex items-center justify-center">
-                              <Package className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <div className="font-medium">{product.name}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm">{product.category}</td>
-                        <td className="py-3 px-4 text-right text-sm">{formatCurrency(product.price)}</td>
-                        <td className="py-3 px-4 text-right text-sm">
-                          <span className={`${product.stock <= 5 ? 'text-destructive' : product.stock <= 10 ? 'text-yellow-500' : ''}`}>
-                            {product.stock}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex justify-center gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8"
-                              onClick={() => handleEditProduct(product)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 text-destructive"
-                              onClick={() => handleDeleteProduct(product.id)}
-                              disabled={deleteProductMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    </SlideUpTransition>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center">
-                      <div className="flex flex-col items-center justify-center">
-                        <Package className="h-8 w-8 text-muted-foreground mb-2" />
-                        <p className="text-muted-foreground">Tidak ada produk ditemukan</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  </div>
+                </SlideUpTransition>
+              ))
+            ) : (
+              <div className="py-8 text-center">
+                <div className="flex flex-col items-center justify-center">
+                  <p className="text-muted-foreground">Tidak ada produk ditemukan</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
-      </GlassCard>
+      </div>
 
       {/* Add Product Modal */}
       {showAddProduct && (
