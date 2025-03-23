@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Calendar, FileDown, Search, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,18 +35,23 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
   });
   const [isExporting, setIsExporting] = useState(false);
 
-  const { data: dashboardData, isLoading } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: DashboardAPI.getData,
-  });
-
-  const { data: transactions } = useQuery({
+  const { data: transactions, isLoading: isTransactionsLoading } = useQuery({
     queryKey: ['transactions'],
-    queryFn: () => fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions`).then(res => res.json()),
+    queryFn: () => fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions`)
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Failed to fetch transactions');
+        }
+        return res.json();
+      })
+      .catch(error => {
+        console.error('Error fetching transactions:', error);
+        return [];
+      }),
   });
 
   const getSalesData = () => {
-    if (!transactions) return [];
+    if (!transactions || !Array.isArray(transactions)) return [];
     
     const salesMap = new Map<string, SalesItem>();
     
@@ -62,6 +68,10 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
         if (!isWithinInterval(transactionDate, { start, end })) {
           return;
         }
+      }
+      
+      if (!transaction.items || !Array.isArray(transaction.items)) {
+        return;
       }
       
       transaction.items.forEach((item: any) => {
@@ -211,7 +221,7 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isTransactionsLoading ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center py-6">
                   <div className="flex justify-center">

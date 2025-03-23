@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Calendar, FileDown, Search, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,17 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
 
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['transactions'],
-    queryFn: () => fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions`).then(res => res.json()),
+    queryFn: () => fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions`)
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Failed to fetch transactions');
+        }
+        return res.json();
+      })
+      .catch(error => {
+        console.error('Error fetching transactions:', error);
+        return [];
+      }),
   });
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => ({
@@ -71,7 +82,7 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
   ];
 
   const getSalesData = () => {
-    if (!transactions) return [];
+    if (!transactions || !Array.isArray(transactions)) return [];
     
     const salesMap = new Map<string, SalesItem>();
     
@@ -85,6 +96,10 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
       
       const transactionDate = parseISO(transaction.date);
       if (!isWithinInterval(transactionDate, { start: startDate, end: endDate })) {
+        return;
+      }
+      
+      if (!transaction.items || !Array.isArray(transaction.items)) {
         return;
       }
       
