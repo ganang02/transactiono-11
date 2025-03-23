@@ -77,7 +77,7 @@ export async function readFile(path: string, directory = Directory.Documents): P
       encoding: Encoding.UTF8
     });
     
-    return result.data;
+    return result.data as string; // Fix for the first error - explicitly cast to string
   } catch (error) {
     console.error("File read error:", error);
     toast({
@@ -145,7 +145,7 @@ export async function saveRemoteImage(imageUrl: string, fileName: string): Promi
               path: fileName,
               data: base64String.split(',')[1], // Remove the data URL prefix
               directory: Directory.Documents,
-              encoding: Encoding.BASE64
+              encoding: Encoding.UTF8 // Fix for the second error - use UTF8 instead of BASE64
             });
             
             toast({
