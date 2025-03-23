@@ -109,15 +109,15 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
         
         if (salesMap.has(key)) {
           const existing = salesMap.get(key)!;
-          existing.quantity += item.quantity;
-          existing.revenue += item.subtotal;
+          existing.quantity += item.quantity || 0;
+          existing.revenue += item.subtotal || 0;
         } else {
           salesMap.set(key, {
             productId: key,
             productName: name,
-            quantity: item.quantity,
-            price: item.price,
-            revenue: item.subtotal
+            quantity: item.quantity || 0,
+            price: item.price || 0,
+            revenue: item.subtotal || 0
           });
         }
       });
@@ -132,8 +132,8 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
     item.productName.toLowerCase().includes(search.toLowerCase())
   );
   
-  const totalQuantity = filteredSales.reduce((acc, item) => acc + item.quantity, 0);
-  const totalRevenue = filteredSales.reduce((acc, item) => acc + item.revenue, 0);
+  const totalQuantity = filteredSales.reduce((acc, item) => acc + (item.quantity || 0), 0);
+  const totalRevenue = filteredSales.reduce((acc, item) => acc + (item.revenue || 0), 0);
   
   const exportToExcel = async () => {
     if (filteredSales.length === 0) {
@@ -309,7 +309,7 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
       {filteredSales.length > 0 && (
         <div className="mt-4 text-right">
           <div className="inline-block bg-muted/20 p-3 rounded-lg">
-            <h3 className="text-lg font-semibold mb-1">Total Pendapatan: {formatCurrency(totalRevenue)}</h3>
+            <h3 className="text-lg font-semibold mb-1">Total Pendapatan: {formatCurrency(totalRevenue || 0)}</h3>
             <p className="text-sm text-muted-foreground">
               Periode: {monthOptions.find(m => m.value === selectedMonth)?.label} {selectedYear}
             </p>

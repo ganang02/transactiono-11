@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Calendar, FileDown, Search, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -79,15 +80,15 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
         
         if (salesMap.has(key)) {
           const existing = salesMap.get(key)!;
-          existing.quantity += item.quantity;
-          existing.revenue += item.subtotal;
+          existing.quantity += item.quantity || 0;
+          existing.revenue += item.subtotal || 0;
         } else {
           salesMap.set(key, {
             productId: key,
             productName: name,
-            quantity: item.quantity,
-            price: item.price,
-            revenue: item.subtotal
+            quantity: item.quantity || 0,
+            price: item.price || 0,
+            revenue: item.subtotal || 0
           });
         }
       });
@@ -102,8 +103,8 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
     item.productName.toLowerCase().includes(search.toLowerCase())
   );
   
-  const totalQuantity = filteredSales.reduce((acc, item) => acc + item.quantity, 0);
-  const totalRevenue = filteredSales.reduce((acc, item) => acc + item.revenue, 0);
+  const totalQuantity = filteredSales.reduce((acc, item) => acc + (item.quantity || 0), 0);
+  const totalRevenue = filteredSales.reduce((acc, item) => acc + (item.revenue || 0), 0);
   
   const exportToExcel = async () => {
     if (filteredSales.length === 0) {
@@ -261,7 +262,7 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
       {filteredSales.length > 0 && (
         <div className="mt-4 text-right">
           <div className="inline-block bg-muted/20 p-3 rounded-lg">
-            <h3 className="text-lg font-semibold mb-1">Total Pendapatan: {formatCurrency(totalRevenue)}</h3>
+            <h3 className="text-lg font-semibold mb-1">Total Pendapatan: {formatCurrency(totalRevenue || 0)}</h3>
             <p className="text-sm text-muted-foreground">Total Produk Terjual: {totalQuantity}</p>
           </div>
         </div>
