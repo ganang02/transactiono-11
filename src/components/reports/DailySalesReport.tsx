@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { Calendar, FileDown, Search, FileSpreadsheet, TrendingUp } from "lucide-react";
+import { Calendar, FileDown, Search, FileSpreadsheet, TrendingUp, ShoppingBag, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GlassCard from "@/components/ui-custom/GlassCard";
@@ -189,10 +189,10 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
 
   return (
     <GlassCard className={`p-0 overflow-hidden rounded-xl shadow-lg ${className}`}>
-      <div className="bg-primary/10 p-4 border-b border-muted">
+      <div className="bg-gradient-to-r from-primary/20 to-primary/5 p-4 border-b border-muted">
         <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
           <div className="flex items-center gap-2">
-            <div className="bg-primary/20 p-2 rounded-lg">
+            <div className="bg-primary/20 p-2 rounded-lg shadow-inner">
               <TrendingUp className="h-5 w-5 text-primary" />
             </div>
             <h2 className="text-lg font-semibold">Laporan Penjualan</h2>
@@ -205,7 +205,7 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
                 placeholder="Cari produk..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 w-full bg-background/50 backdrop-blur-sm"
+                className="pl-9 w-full bg-background/80 backdrop-blur-sm border-primary/20 focus-visible:ring-primary/30"
               />
             </div>
             <DateRangePicker 
@@ -214,7 +214,7 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
             />
             <Button 
               variant="outline" 
-              className="gap-2 whitespace-nowrap bg-primary/10 hover:bg-primary/20"
+              className="gap-2 whitespace-nowrap bg-primary/10 hover:bg-primary/20 border-primary/20"
               onClick={exportToExcel}
               disabled={isExporting}
             >
@@ -237,19 +237,19 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/30 hover:bg-muted/30">
-              <TableHead className="w-[40%]">Nama Produk</TableHead>
-              <TableHead className="text-center">Jumlah Terjual</TableHead>
-              <TableHead className="text-center">Harga Satuan</TableHead>
-              <TableHead className="text-right">Total Pendapatan</TableHead>
+            <TableRow className="bg-primary/5 hover:bg-primary/10">
+              <TableHead className="w-[40%] font-semibold">Nama Produk</TableHead>
+              <TableHead className="text-center font-semibold">Jumlah Terjual</TableHead>
+              <TableHead className="text-center font-semibold">Harga Satuan</TableHead>
+              <TableHead className="text-right font-semibold">Total Pendapatan</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isTransactionsLoading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-6">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <div className="animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full"></div>
+                <TableCell colSpan={4} className="text-center py-12">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
                     <p className="text-sm text-muted-foreground">Memuat data penjualan...</p>
                   </div>
                 </TableCell>
@@ -258,27 +258,29 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
               <>
                 {filteredSales.map((item, index) => (
                   <SlideUpTransition key={item.productId} show={true} duration={300 + index * 30}>
-                    <TableRow key={item.productId} className="hover:bg-primary/5">
+                    <TableRow key={item.productId} className="hover:bg-primary/5 transition-colors">
                       <TableCell className="font-medium">{item.productName}</TableCell>
                       <TableCell className="text-center">{item.quantity}</TableCell>
                       <TableCell className="text-center">{formatCurrency(item.price)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(item.revenue)}</TableCell>
+                      <TableCell className="text-right font-semibold text-primary/90">{formatCurrency(item.revenue)}</TableCell>
                     </TableRow>
                   </SlideUpTransition>
                 ))}
-                <TableRow className="bg-primary/5 font-bold">
+                <TableRow className="bg-primary/10 font-bold">
                   <TableCell className="font-bold">TOTAL</TableCell>
                   <TableCell className="text-center font-bold">{totalQuantity}</TableCell>
                   <TableCell className="text-center"></TableCell>
-                  <TableCell className="text-right font-bold">{formatCurrency(totalRevenue)}</TableCell>
+                  <TableCell className="text-right font-bold text-primary">{formatCurrency(totalRevenue)}</TableCell>
                 </TableRow>
               </>
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <Calendar className="h-8 w-8 text-muted-foreground/50" />
-                    <p>Tidak ada data penjualan untuk periode yang dipilih</p>
+                <TableCell colSpan={4} className="text-center py-16">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="bg-muted/30 p-4 rounded-full">
+                      <Calendar className="h-10 w-10 text-muted-foreground/50" />
+                    </div>
+                    <p className="text-lg font-medium text-muted-foreground">Tidak ada data penjualan untuk periode yang dipilih</p>
                     <p className="text-sm text-muted-foreground/70">Coba pilih rentang tanggal yang berbeda</p>
                   </div>
                 </TableCell>
@@ -289,15 +291,25 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
       </div>
       
       {filteredSales.length > 0 && (
-        <div className="p-4 border-t border-muted">
-          <div className="ml-auto w-full md:w-80 bg-primary/10 p-4 rounded-xl">
-            <div className="flex justify-between mb-2">
-              <span className="text-muted-foreground">Total Produk Terjual:</span>
-              <span className="font-medium">{totalQuantity}</span>
+        <div className="p-6 border-t border-muted bg-gradient-to-b from-white to-muted/10 dark:from-transparent dark:to-primary/5">
+          <div className="ml-auto w-full md:w-80 bg-primary/10 p-6 rounded-xl shadow-inner border border-primary/20">
+            <div className="flex justify-between mb-4 items-center">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/20">
+                  <ShoppingBag className="h-4 w-4 text-primary" />
+                </div>
+                <span className="text-muted-foreground">Total Produk Terjual:</span>
+              </div>
+              <span className="font-medium text-lg">{totalQuantity}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-lg font-medium">Total Pendapatan:</span>
-              <span className="text-lg font-bold text-primary">{formatCurrency(totalRevenue || 0)}</span>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/20">
+                  <DollarSign className="h-4 w-4 text-primary" />
+                </div>
+                <span className="text-lg font-medium">Total Pendapatan:</span>
+              </div>
+              <span className="text-xl font-bold text-primary">{formatCurrency(totalRevenue || 0)}</span>
             </div>
           </div>
         </div>
