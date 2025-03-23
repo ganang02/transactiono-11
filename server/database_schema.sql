@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS transaction_items (
   quantity INT NOT NULL,
   price DECIMAL(10, 2) NOT NULL,
   subtotal DECIMAL(10, 2) NOT NULL,
+  product_image VARCHAR(255) NULL,
   FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
 );
 
@@ -58,6 +59,15 @@ CREATE TABLE IF NOT EXISTS exports (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   user_id INT NULL, -- For future user authentication
   parameters TEXT NULL -- Store JSON with export parameters (date range, filters, etc.)
+);
+
+-- Images table to store product images
+CREATE TABLE IF NOT EXISTS product_images (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  image_path VARCHAR(255) NOT NULL,
+  upload_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
 -- Insert default store info
