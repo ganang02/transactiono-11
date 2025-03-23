@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -528,8 +529,14 @@ const Cashier = () => {
                                   alt={product.name} 
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    e.currentTarget.parentElement!.querySelector('.fallback-icon')!.style.display = 'flex';
+                                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                    const parent = e.currentTarget.parentElement;
+                                    if (parent) {
+                                      const fallbackElement = parent.querySelector('.fallback-icon') as HTMLElement;
+                                      if (fallbackElement) {
+                                        fallbackElement.style.display = 'flex';
+                                      }
+                                    }
                                   }}
                                 />
                               ) : (
