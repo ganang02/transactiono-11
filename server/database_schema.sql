@@ -49,6 +49,17 @@ CREATE TABLE IF NOT EXISTS store_info (
   notes TEXT NULL
 );
 
+-- Exports table to track export history
+CREATE TABLE IF NOT EXISTS exports (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  type VARCHAR(50) NOT NULL, -- Type of export (products, daily_sales, monthly_sales)
+  file_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(255) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  user_id INT NULL, -- For future user authentication
+  parameters TEXT NULL -- Store JSON with export parameters (date range, filters, etc.)
+);
+
 -- Insert default store info
 INSERT INTO store_info (name, whatsapp, address, notes)
 VALUES ('Coffee Corner', '+6281234567890', 'Jl. Sudirman No. 123, Jakarta', 'Open daily from 8 AM to 10 PM');

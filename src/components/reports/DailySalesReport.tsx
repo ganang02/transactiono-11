@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { Calendar, FileDown, Search } from "lucide-react";
+import { Calendar, FileDown, Search, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GlassCard from "@/components/ui-custom/GlassCard";
@@ -32,6 +32,7 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
     from: new Date(),
     to: new Date(),
   });
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['dashboard'],
@@ -113,50 +114,68 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
       return;
     }
     
-    const dateRangeText = dateRange?.from 
-      ? (dateRange.to 
-        ? `${format(dateRange.from, 'dd-MM-yyyy')}_to_${format(dateRange.to, 'dd-MM-yyyy')}` 
-        : format(dateRange.from, 'dd-MM-yyyy'))
-      : 'all-time';
+    setIsExporting(true);
     
-    const headers = ["Nama Produk", "Jumlah Terjual", "Harga Satuan", "Total Pendapatan"];
-    
-    const csvData = filteredSales.map(item => [
-      item.productName,
-      item.quantity,
-      item.price,
-      item.revenue
-    ]);
-    
-    // Add total row
-    csvData.push(["TOTAL", totalQuantity, "", totalRevenue]);
-    
-    let csvContent = headers.join(",") + "\n";
-    
-    csvData.forEach(row => {
-      const formattedRow = row.map(cell => {
-        // Check if cell is a string and contains commas, then wrap it in quotes
-        if (typeof cell === 'string' && cell.includes(',')) {
-          return `"${cell}"`;
-        }
-        return cell;
+    try {
+      const dateRangeText = dateRange?.from 
+        ? (dateRange.to 
+          ? `${format(dateRange.from, 'dd-MM-yyyy')}_to_${format(dateRange.to, 'dd-MM-yyyy')}` 
+          : format(dateRange.from, 'dd-MM-yyyy'))
+        : 'all-time';
+      
+      const headers = ["Nama Produk", "Jumlah Terjual", "Harga Satuan", "Total Pendapatan"];
+      
+      const csvData = filteredSales.map(item => [
+        item.productName,
+        item.quantity,
+        item.price,
+        item.revenue
+      ]);
+      
+      // Add total row
+      csvData.push(["TOTAL", totalQuantity, "", totalRevenue]);
+      
+      let csvContent = headers.join(",") + "\n";
+      
+      csvData.forEach(row => {
+        const formattedRow = row.map(cell => {
+          // Check if cell is a string and contains commas, then wrap it in quotes
+          if (typeof cell === 'string' && cell.includes(',')) {
+            return `"${cell}"`;
+          }
+          return cell;
+        });
+        csvContent += formattedRow.join(",") + "\n";
       });
-      csvContent += formattedRow.join(",") + "\n";
-    });
-    
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `sales_report_${dateRangeText}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast({
-      title: "Ekspor berhasil",
-      description: "Laporan penjualan berhasil diekspor ke Excel"
-    });
+      
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `sales_report_${dateRangeText}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setIsExporting(false);
+        
+        toast({
+          title: "Ekspor berhasil",
+          description: "Laporan penjualan berhasil diekspor ke Excel"
+        });
+      }, 100);
+    } catch (error) {
+      console.error("Export error:", error);
+      setIsExporting(false);
+      toast({
+        title: "Ekspor gagal",
+        description: "Terjadi kesalahan saat mengekspor data",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -182,9 +201,19 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
             variant="outline" 
             className="gap-2 whitespace-nowrap"
             onClick={exportToExcel}
+            disabled={isExporting}
           >
-            <FileDown className="h-4 w-4" />
-            Ekspor ke Excel
+            {isExporting ? (
+              <>
+                <div className="h-4 w-4 border-2 border-current border-t-transparent animate-spin rounded-full"></div>
+                <span>Mengekspor...</span>
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet className="h-4 w-4" />
+                <span>Ekspor ke Excel</span>
+              </>
+            )}
           </Button>
         </div>
       </div>

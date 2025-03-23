@@ -24,6 +24,7 @@ const ProductsExport = ({
   onClose
 }: ProductsExportProps) => {
   const [format, setFormat] = useState<"csv">("csv");
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = () => {
     if (products.length === 0) {
@@ -35,43 +36,60 @@ const ProductsExport = ({
       return;
     }
 
-    // Set filename with current date
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const filename = `products_${dateStr}`;
-    
-    // Create CSV content
-    const headers = ["ID", "Nama Produk", "Kategori", "Harga", "Stok"];
-    const rows = products.map(product => [
-      product.id,
-      product.name,
-      product.category,
-      product.price,
-      product.stock
-    ]);
-    
-    // Convert to CSV format
-    const content = [
-      headers.join(","),
-      ...rows.map(row => row.join(","))
-    ].join("\n");
-    
-    // Create a download link and trigger download
-    const blob = new Blob([content], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filename}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast({
-      title: "Ekspor berhasil",
-      description: `Data produk berhasil diekspor sebagai CSV`,
-    });
-    
-    onClose();
+    setIsExporting(true);
+
+    try {
+      // Set filename with current date
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const filename = `products_${dateStr}`;
+      
+      // Create CSV content
+      const headers = ["ID", "Nama Produk", "Kategori", "Harga", "Stok"];
+      const rows = products.map(product => [
+        product.id,
+        product.name,
+        product.category,
+        product.price,
+        product.stock
+      ]);
+      
+      // Convert to CSV format
+      const content = [
+        headers.join(","),
+        ...rows.map(row => row.join(","))
+      ].join("\n");
+      
+      // Create a download link and trigger download
+      const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${filename}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setIsExporting(false);
+        
+        toast({
+          title: "Ekspor berhasil",
+          description: `Data produk berhasil diekspor sebagai CSV`,
+        });
+        
+        onClose();
+      }, 100);
+    } catch (error) {
+      console.error("Export error:", error);
+      setIsExporting(false);
+      toast({
+        title: "Ekspor gagal",
+        description: "Terjadi kesalahan saat mengekspor data",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -93,9 +111,22 @@ const ProductsExport = ({
               <Button variant="outline" onClick={onClose}>
                 Batal
               </Button>
-              <Button onClick={handleExport} className="gap-2">
-                <FileSpreadsheet className="h-4 w-4" />
-                Ekspor ke Excel
+              <Button 
+                onClick={handleExport} 
+                className="gap-2"
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-current border-t-transparent animate-spin rounded-full"></div>
+                    <span>Mengekspor...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="h-4 w-4" />
+                    <span>Ekspor ke Excel</span>
+                  </>
+                )}
               </Button>
             </div>
           </div>

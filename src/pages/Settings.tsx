@@ -7,13 +7,22 @@ import PrinterSettings from "@/components/settings/PrinterSettings";
 import DailySalesReport from "@/components/reports/DailySalesReport";
 import MonthlySalesReport from "@/components/reports/MonthlySalesReport";
 import { Separator } from "@/components/ui/separator";
+import { useQuery } from "@tanstack/react-query";
+import { FileSpreadsheet } from "lucide-react";
 
 const Settings = () => {
+  const [activeTab, setActiveTab] = useState("store");
+
   return (
     <div className="container px-4 mx-auto max-w-7xl pb-8 animate-fade-in mt-6">
       <h1 className="text-2xl font-bold mb-6">Pengaturan & Laporan</h1>
       
-      <Tabs defaultValue="store" className="w-full">
+      <Tabs 
+        defaultValue="store" 
+        className="w-full"
+        value={activeTab}
+        onValueChange={setActiveTab}
+      >
         <TabsList className="mb-6 flex w-full overflow-x-auto bg-transparent p-0 gap-1">
           <TabsTrigger value="store" className="rounded-lg px-4 py-2">
             Informasi Toko
