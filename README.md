@@ -101,55 +101,80 @@ Jika Anda ingin menguji secara lokal terlebih dahulu:
    npx cap run android
    ```
 
-## Panduan Menggunakan Printer Bluetooth
+## Panduan Lengkap Menggunakan Printer Bluetooth
+
+### Persiapan Awal:
+
+1. Pastikan printer Bluetooth Anda sudah menyala dan diisi dengan kertas struk
+2. Aktifkan Bluetooth pada perangkat Android Anda
+3. Jika ini pertama kali menggunakan aplikasi, berikan izin yang diminta:
+   - Izin Bluetooth
+   - Izin Lokasi (diperlukan untuk pemindaian Bluetooth)
 
 ### Menghubungkan Printer Bluetooth:
 
-1. Di aplikasi POS, buka menu "Settings"
-
-2. Cari bagian "Pengaturan Printer"
-
+1. Di aplikasi POS, buka menu "Settings" dengan mengklik ikon roda gigi
+2. Pilih tab "Printer" atau cari bagian "Pengaturan Printer"
 3. Klik tombol "Cari printer Bluetooth"
+4. Jika diminta izin Bluetooth atau Lokasi, berikan izin tersebut
+5. Aplikasi akan memindai dan menampilkan daftar perangkat Bluetooth yang tersedia
+6. Temukan printer Anda dalam daftar (biasanya nama berisi "Printer", "POS", atau nama merk)
+7. Pilih printer Anda dengan mengkliknya
+8. Setelah terhubung berhasil, Anda akan melihat notifikasi dan nama printer akan muncul sebagai "Terhubung"
+9. Printer yang sudah terhubung akan disimpan untuk penggunaan berikutnya
 
-4. Pastikan printer Bluetooth Anda sudah menyala dan dalam mode pairing
+### Mencetak Struk Transaksi:
 
-5. Aplikasi akan memindai dan menampilkan daftar perangkat yang ditemukan
+1. Selesaikan transaksi pada halaman Kasir
+2. Setelah transaksi selesai, klik tombol "Cetak Struk"
+3. Jika printer sudah terhubung sebelumnya, pencetakan akan langsung dimulai
+4. Jika printer belum terhubung, Anda akan diminta untuk memilih printer
+5. Lihat preview struk terlebih dahulu (jika tersedia)
+6. Konfirmasi pencetakan
 
-6. Pilih printer Anda dari daftar tersebut dengan mengkliknya
+### Troubleshooting Koneksi Bluetooth:
 
-7. Setelah terhubung, Anda akan melihat nama printer terpilih
+1. **Printer tidak terdeteksi saat pemindaian:**
+   - Pastikan printer menyala dan dalam mode pairing/dapat ditemukan
+   - Matikan dan nyalakan kembali printer
+   - Pastikan baterai printer cukup
+   - Matikan dan nyalakan kembali Bluetooth pada perangkat Anda
+   - Periksa jarak antara printer dan perangkat (tidak lebih dari 10 meter)
 
-### Mencetak Struk:
+2. **Izin ditolak atau masalah izin:**
+   - Buka Pengaturan > Aplikasi > POS System > Izin
+   - Pastikan izin Bluetooth dan Lokasi diaktifkan
+   - Jika masih bermasalah, restart aplikasi dan perangkat
 
-1. Buat transaksi baru di halaman Kasir
-
-2. Setelah transaksi selesai, klik tombol "Cetak Struk" 
-
-3. Pilih printer yang telah terhubung
-
-4. Tinjau preview struk jika tersedia
-
-5. Klik "Cetak" untuk mengirim data ke printer
-
-### Troubleshooting Bluetooth:
-
-1. **Printer tidak terdeteksi:**
-   - Pastikan printer menyala dan dalam mode pairing
-   - Pastikan Bluetooth diaktifkan di perangkat Anda
-   - Restart printer dan coba kembali
-
-2. **Izin ditolak:**
-   - Di perangkat Android, pastikan aplikasi memiliki izin Bluetooth dan Lokasi
-   - Buka pengaturan aplikasi di perangkat dan berikan semua izin yang diminta
-
-3. **Koneksi terputus:**
-   - Bluetooth dapat terputus jika terlalu lama tidak digunakan
-   - Gunakan tombol "Reconnect" atau hubungkan ulang printer
+3. **Koneksi terputus saat mencetak:**
+   - Periksa jarak antara printer dan perangkat
+   - Periksa baterai printer
+   - Coba hubungkan kembali dari menu Pengaturan Printer
 
 4. **Printer tersambung tapi tidak mencetak:**
-   - Pastikan printer memiliki kertas
-   - Coba matikan dan nyalakan kembali printer
-   - Pastikan format struk kompatibel dengan printer Anda
+   - Pastikan printer memiliki kertas yang cukup
+   - Periksa apakah printer dalam mode standby atau hemat daya
+   - Coba restart printer dan hubungkan kembali
+   - Periksa apakah ada error pada layar printer (jika ada)
+
+5. **Printer mencetak teks yang tidak terbaca:**
+   - Pastikan printer mendukung format teks yang dikirim
+   - Untuk printer termal, pastikan kertas termal dipasang dengan benar
+
+### Tips Penggunaan Printer Bluetooth:
+
+1. **Hemat Baterai:**
+   - Matikan printer saat tidak digunakan untuk jangka waktu lama
+   - Gunakan adaptor listrik jika tersedia untuk penggunaan yang lama
+
+2. **Pengaturan Printer:**
+   - Beberapa printer memiliki pengaturan densitas cetak yang dapat disesuaikan
+   - Atur kecepatan cetak jika printer mendukung
+
+3. **Perawatan Printer:**
+   - Bersihkan head printer secara berkala menggunakan alkohol isopropil
+   - Gunakan kertas berkualitas baik untuk mencegah kerusakan pada head printer
+   - Simpan printer di tempat yang kering dan bersih
 
 ## Menghubungkan APK ke Database di cPanel
 
