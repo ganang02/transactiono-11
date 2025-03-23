@@ -10,7 +10,10 @@ CREATE TABLE IF NOT EXISTS products (
   price DECIMAL(10, 2) NOT NULL,
   stock INT NOT NULL DEFAULT 0,
   category VARCHAR(100) NOT NULL,
-  image VARCHAR(255) NULL
+  image VARCHAR(255) NULL,
+  barcode VARCHAR(50) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- Transactions table
@@ -25,7 +28,9 @@ CREATE TABLE IF NOT EXISTS transactions (
   status ENUM('completed', 'pending', 'cancelled') NOT NULL,
   receipt BOOLEAN NOT NULL DEFAULT FALSE,
   amount_paid DECIMAL(10, 2) NULL,
-  change_amount DECIMAL(10, 2) NULL
+  change_amount DECIMAL(10, 2) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- Transaction items table
@@ -75,9 +80,9 @@ INSERT INTO store_info (name, whatsapp, address, notes)
 VALUES ('Coffee Corner', '+6281234567890', 'Jl. Sudirman No. 123, Jakarta', 'Open daily from 8 AM to 10 PM');
 
 -- Insert some sample products
-INSERT INTO products (name, price, stock, category) VALUES
-('Coffee Cup', 25000, 50, 'Drinks'),
-('Sandwich', 35000, 20, 'Food'),
-('French Fries', 20000, 40, 'Food'),
-('Iced Tea', 15000, 60, 'Drinks'),
-('Chocolate Cake', 40000, 15, 'Dessert');
+INSERT INTO products (name, price, stock, category, barcode) VALUES
+('Coffee Cup', 25000, 50, 'Drinks', '8991234567001'),
+('Sandwich', 35000, 20, 'Food', '8991234567002'),
+('French Fries', 20000, 40, 'Food', '8991234567003'),
+('Iced Tea', 15000, 60, 'Drinks', '8991234567004'),
+('Chocolate Cake', 40000, 15, 'Dessert', '8991234567005');

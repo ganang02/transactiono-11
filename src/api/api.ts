@@ -1,3 +1,4 @@
+
 import { toast } from "@/hooks/use-toast";
 
 // Use the environment variable or fallback to localhost
@@ -93,11 +94,11 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
     if (endpoint === '/products' && options.method === undefined) {
       console.log('Returning mock products data');
       return [
-        { id: '1', name: 'Coffee', price: 15000, stock: 100, category: 'drinks', barcode: '8991234567891' },
-        { id: '2', name: 'Tea', price: 12000, stock: 75, category: 'drinks', barcode: '8991234567892' },
-        { id: '3', name: 'Sandwich', price: 25000, stock: 20, category: 'food', barcode: '8991234567893' },
-        { id: '4', name: 'Cake', price: 18000, stock: 15, category: 'dessert', barcode: '8991234567894' },
-        { id: '5', name: 'Cookies', price: 10000, stock: 5, category: 'dessert', barcode: '8991234567895' },
+        { id: '1', name: 'Coffee', price: 15000, stock: 100, category: 'drinks', barcode: '8991234567891', imageUrl: 'https://images.unsplash.com/photo-1497636577773-f1231844b336?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=300' },
+        { id: '2', name: 'Tea', price: 12000, stock: 75, category: 'drinks', barcode: '8991234567892', imageUrl: 'https://images.unsplash.com/photo-1576092762791-dd9e2220abd1?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=300' },
+        { id: '3', name: 'Sandwich', price: 25000, stock: 20, category: 'food', barcode: '8991234567893', imageUrl: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=300' },
+        { id: '4', name: 'Cake', price: 18000, stock: 15, category: 'dessert', barcode: '8991234567894', imageUrl: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=300' },
+        { id: '5', name: 'Cookies', price: 10000, stock: 5, category: 'dessert', barcode: '8991234567895', imageUrl: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=300' },
       ];
     }
     
@@ -205,7 +206,16 @@ export const ExpensesAPI = {
 };
 
 // Helper functions
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number | null | undefined): string {
+  if (amount === null || amount === undefined || isNaN(amount)) {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(0);
+  }
+  
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',

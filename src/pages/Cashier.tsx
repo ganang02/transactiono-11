@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +36,8 @@ interface Product {
   stock: number;
   category: string;
   barcode: string;
+  image?: string;
+  imageUrl?: string;
 }
 
 interface CartItem {
@@ -106,7 +107,6 @@ const Cashier = () => {
     queryFn: StoreAPI.getInfo,
   });
 
-  // Fetch pending transactions
   const {
     data: pendingTransactions = [],
     isLoading: isLoadingPending,
@@ -177,7 +177,6 @@ const Cashier = () => {
     }
   });
 
-  // Compute filtered products from search term
   const filteredProducts = useMemo(() => {
     if (!productsData) return [];
     
@@ -192,7 +191,6 @@ const Cashier = () => {
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
   const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-  // Removed tax calculation as requested
   const tax = 0;
   const total = subtotal + tax;
   
@@ -424,32 +422,23 @@ const Cashier = () => {
     }
   };
 
-  // Load pending transaction into cart
   const loadPendingTransaction = (transaction: TransactionData) => {
-    // Clear current cart
     setCart([]);
-    
-    // Convert transaction items to cart items
     const cartItems: CartItem[] = transaction.items.map(item => ({
       id: item.productId,
       name: item.productName,
       price: item.price,
       quantity: item.quantity
     }));
-    
     setCart(cartItems);
     setCurrentTransaction(transaction);
-    
     toast({
       title: "Transaction loaded",
       description: `Transaction #${transaction.id} loaded into cart`,
     });
-    
-    // Switch to new transaction tab
     setActiveTab("new");
   };
 
-  // Sync with Header search if any
   useEffect(() => {
     const handleAppSearch = (e: CustomEvent) => {
       setSearch(e.detail || "");
@@ -533,7 +522,24 @@ const Cashier = () => {
                             onClick={() => addToCart(product)}
                           >
                             <div className="aspect-square bg-muted relative overflow-hidden flex items-center justify-center">
-                              <div className={`bg-${getCategoryColor(product.category)}-100 w-full h-full flex items-center justify-center`}>
+                              {product.imageUrl ? (
+                                <img 
+                                  src={product.imageUrl} 
+                                  alt={product.name} 
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.parentElement!.querySelector('.fallback-icon')!.style.display = 'flex';
+                                  }}
+                                />
+                              ) : (
+                                <div className={`bg-${getCategoryColor(product.category)}-100 w-full h-full flex items-center justify-center fallback-icon`}>
+                                  <Package className={`h-12 w-12 text-${getCategoryColor(product.category)}-500`} />
+                                </div>
+                              )}
+                              
+                              <div className={`bg-${getCategoryColor(product.category)}-100 w-full h-full flex items-center justify-center fallback-icon`} 
+                                   style={{display: product.imageUrl ? 'none' : 'flex', position: product.imageUrl ? 'absolute' : 'relative', inset: 0}}>
                                 <Package className={`h-12 w-12 text-${getCategoryColor(product.category)}-500`} />
                               </div>
                               
