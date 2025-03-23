@@ -312,6 +312,18 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
           </TableBody>
         </Table>
       </div>
+      
+      {filteredSales.length > 0 && (
+        <div className="mt-4 text-right">
+          <div className="inline-block bg-muted/20 p-3 rounded-lg">
+            <h3 className="text-lg font-semibold mb-1">Total Pendapatan: {formatCurrency(totalRevenue)}</h3>
+            <p className="text-sm text-muted-foreground">
+              Periode: {monthOptions.find(m => m.value === selectedMonth)?.label} {selectedYear}
+            </p>
+            <p className="text-sm text-muted-foreground">Total Produk Terjual: {totalQuantity}</p>
+          </div>
+        </div>
+      )}
     </GlassCard>
   );
 };
