@@ -53,6 +53,17 @@ export async function saveFile(fileName: string, data: string, mimeType: string)
   }
 }
 
+// Process numerical values for CSV export
+export function processNumberForCSV(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || isNaN(Number(value))) {
+    return "0";
+  }
+  
+  // Ensure it's a number and convert to string
+  const numValue = typeof value === 'string' ? parseFloat(value.replace(/[^\d.-]/g, '')) : Number(value);
+  return numValue.toString();
+}
+
 // Save a remote image to local file system (simplified version)
 export async function saveRemoteImage(imageUrl: string, fileName: string): Promise<string | null> {
   try {

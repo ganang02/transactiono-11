@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Calendar, FileDown, Search, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { DateRange } from "react-day-picker";
 import { DateRangePicker } from "@/components/ui-custom/DateRangePicker";
 import { toast } from "@/hooks/use-toast";
 import { startOfDay, endOfDay, isWithinInterval, parseISO, format } from "date-fns";
-import { saveFile } from "@/utils/fileExport";
+import { saveFile, processNumberForCSV } from "@/utils/fileExport";
 
 interface DailySalesReportProps {
   className?: string;
@@ -35,7 +36,7 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
   const [isExporting, setIsExporting] = useState(false);
 
   const { data: transactions, isLoading: isTransactionsLoading } = useQuery({
-    queryKey: ['transactions'],
+    queryKey: ['transactions', dateRange?.from, dateRange?.to],
     queryFn: () => fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions`)
       .then(res => {
         if (!res.ok) {
@@ -45,6 +46,11 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
       })
       .catch(error => {
         console.error('Error fetching transactions:', error);
+        toast({
+          title: "Gagal memuat data",
+          description: "Menggunakan data offline untuk preview",
+          variant: "destructive"
+        });
         return [];
       }),
   });
@@ -55,10 +61,12 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
     const salesMap = new Map<string, SalesItem>();
     
     transactions.forEach((transaction: any) => {
-      if (transaction.payment_status !== 'completed' && transaction.status !== 'completed') {
+      // Only include completed transactions
+      if (transaction.payment_status !== 'completed') {
         return;
       }
       
+      // Filter by date range if provided
       const transactionDate = parseISO(transaction.date);
       if (dateRange?.from && dateRange?.to) {
         const start = startOfDay(dateRange.from);
@@ -76,18 +84,21 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
       transaction.items.forEach((item: any) => {
         const key = item.product_id || item.productId;
         const name = item.product_name || item.productName;
+        const quantity = Number(item.quantity) || 0;
+        const price = Number(item.price) || 0;
+        const subtotal = Number(item.subtotal) || 0;
         
         if (salesMap.has(key)) {
           const existing = salesMap.get(key)!;
-          existing.quantity += item.quantity || 0;
-          existing.revenue += item.subtotal || 0;
+          existing.quantity += quantity;
+          existing.revenue += subtotal;
         } else {
           salesMap.set(key, {
             productId: key,
             productName: name,
-            quantity: item.quantity || 0,
-            price: item.price || 0,
-            revenue: item.subtotal || 0
+            quantity: quantity,
+            price: price,
+            revenue: subtotal
           });
         }
       });
@@ -120,17 +131,17 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
     try {
       const dateRangeText = dateRange?.from 
         ? (dateRange.to 
-          ? `${format(dateRange.from, 'dd-MM-yyyy')}_to_${format(dateRange.to, 'dd-MM-yyyy')}` 
+          ? `${format(dateRange.from, 'dd-MM-yyyy')}_sampai_${format(dateRange.to, 'dd-MM-yyyy')}` 
           : format(dateRange.from, 'dd-MM-yyyy'))
-        : 'all-time';
+        : 'semua_waktu';
       
       const headers = ["Nama Produk", "Jumlah Terjual", "Harga Satuan", "Total Pendapatan"];
       
       const csvData = filteredSales.map(item => [
         item.productName,
-        item.quantity,
-        formatCurrency(item.price).replace(/[^\d.-]/g, ''),  // Remove currency symbol for CSV
-        formatCurrency(item.revenue).replace(/[^\d.-]/g, '')
+        item.quantity.toString(),
+        processNumberForCSV(item.price),
+        processNumberForCSV(item.revenue)
       ]);
       
       // Add total row
@@ -138,7 +149,7 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
         "TOTAL", 
         totalQuantity.toString(), 
         "", 
-        totalRevenue ? formatCurrency(totalRevenue).replace(/[^\d.-]/g, '') : "0"
+        processNumberForCSV(totalRevenue)
       ]);
       
       // Format the CSV content
@@ -154,7 +165,7 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
         csvContent += formattedRow.join(",") + "\n";
       });
       
-      const fileName = `sales_report_${dateRangeText}.csv`;
+      const fileName = `laporan_penjualan_${dateRangeText}.csv`;
       
       const success = await saveFile(fileName, csvContent, "text/csv;charset=utf-8;");
       

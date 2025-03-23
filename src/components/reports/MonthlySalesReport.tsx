@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format, getYear, getMonth } from "date-fns";
-import { saveFile } from "@/utils/fileExport";
+import { saveFile, processNumberForCSV } from "@/utils/fileExport";
 
 interface MonthlySalesReportProps {
   className?: string;
@@ -47,7 +47,7 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
   const [isExporting, setIsExporting] = useState(false);
 
   const { data: transactions, isLoading } = useQuery({
-    queryKey: ['transactions'],
+    queryKey: ['transactions', selectedYear, selectedMonth],
     queryFn: () => fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions`)
       .then(res => {
         if (!res.ok) {
@@ -57,6 +57,11 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
       })
       .catch(error => {
         console.error('Error fetching transactions:', error);
+        toast({
+          title: "Gagal memuat data",
+          description: "Menggunakan data offline untuk preview",
+          variant: "destructive"
+        });
         return [];
       }),
   });
@@ -90,10 +95,12 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
     const endDate = endOfMonth(new Date(parseInt(selectedYear), parseInt(selectedMonth)));
     
     transactions.forEach((transaction: any) => {
-      if (transaction.payment_status !== 'completed' && transaction.status !== 'completed') {
+      // Only include completed transactions
+      if (transaction.payment_status !== 'completed') {
         return;
       }
       
+      // Filter by selected month and year
       const transactionDate = parseISO(transaction.date);
       if (!isWithinInterval(transactionDate, { start: startDate, end: endDate })) {
         return;
@@ -106,18 +113,21 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
       transaction.items.forEach((item: any) => {
         const key = item.product_id || item.productId;
         const name = item.product_name || item.productName;
+        const quantity = Number(item.quantity) || 0;
+        const price = Number(item.price) || 0;
+        const subtotal = Number(item.subtotal) || 0;
         
         if (salesMap.has(key)) {
           const existing = salesMap.get(key)!;
-          existing.quantity += item.quantity || 0;
-          existing.revenue += item.subtotal || 0;
+          existing.quantity += quantity;
+          existing.revenue += subtotal;
         } else {
           salesMap.set(key, {
             productId: key,
             productName: name,
-            quantity: item.quantity || 0,
-            price: item.price || 0,
-            revenue: item.subtotal || 0
+            quantity: quantity,
+            price: price,
+            revenue: subtotal
           });
         }
       });
@@ -149,15 +159,15 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
     
     try {
       const monthName = monthOptions.find(m => m.value === selectedMonth)?.label;
-      const filename = `sales_report_${monthName}_${selectedYear}.csv`;
+      const filename = `laporan_penjualan_${monthName}_${selectedYear}.csv`;
       
       const headers = ["Nama Produk", "Jumlah Terjual", "Harga Satuan", "Total Pendapatan"];
       
       const csvData = filteredSales.map(item => [
         item.productName,
-        item.quantity,
-        formatCurrency(item.price).replace(/[^\d.-]/g, ''),  // Remove currency symbol for CSV
-        formatCurrency(item.revenue).replace(/[^\d.-]/g, '')
+        item.quantity.toString(),
+        processNumberForCSV(item.price),
+        processNumberForCSV(item.revenue)
       ]);
       
       // Add total row
@@ -165,7 +175,7 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
         "TOTAL", 
         totalQuantity.toString(), 
         "", 
-        totalRevenue ? formatCurrency(totalRevenue).replace(/[^\d.-]/g, '') : "0"
+        processNumberForCSV(totalRevenue)
       ]);
       
       // Format the CSV content
