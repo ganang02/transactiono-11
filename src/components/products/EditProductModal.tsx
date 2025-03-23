@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import GlassCard from "@/components/ui-custom/GlassCard";
 import { SlideUpTransition } from "@/hooks/useTransition";
 import { Spinner } from "@/components/ui/spinner";
-import { Camera, Image as ImageIcon, X } from "lucide-react";
-import { takePhoto, convertPhotoToBase64 } from "@/utils/imageUtils";
+import { Camera, ImageIcon, X, Upload } from "lucide-react";
+import { takePhoto, pickPhoto, convertPhotoToBase64 } from "@/utils/imageUtils";
 import { toast } from "@/hooks/use-toast";
 
 interface EditProductModalProps {
@@ -78,6 +78,29 @@ export const EditProductModal = ({
       toast({
         title: "Gagal mengambil foto",
         description: "Terjadi kesalahan saat mengambil foto",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const handlePickPhoto = async () => {
+    try {
+      const photoUri = await pickPhoto();
+      if (photoUri) {
+        setPhotoPreview(photoUri);
+        
+        // Convert to base64 for API upload
+        const base64Data = await convertPhotoToBase64(photoUri);
+        setEditedProduct({
+          ...editedProduct,
+          imageBase64: base64Data
+        });
+      }
+    } catch (error) {
+      console.error("Error picking photo:", error);
+      toast({
+        title: "Gagal memilih foto",
+        description: "Terjadi kesalahan saat memilih foto",
         variant: "destructive"
       });
     }
@@ -178,14 +201,24 @@ export const EditProductModal = ({
                 </div>
               )}
               
-              <Button 
-                variant="outline" 
-                className="w-full mt-2 gap-2"
-                onClick={handleTakePhoto}
-              >
-                <Camera className="h-4 w-4" />
-                Ambil Foto
-              </Button>
+              <div className="flex gap-2 mt-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 gap-2"
+                  onClick={handleTakePhoto}
+                >
+                  <Camera className="h-4 w-4" />
+                  Ambil Foto
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex-1 gap-2"
+                  onClick={handlePickPhoto}
+                >
+                  <Upload className="h-4 w-4" />
+                  Pilih Foto
+                </Button>
+              </div>
             </div>
             
             <div className="pt-4 flex justify-end space-x-2">

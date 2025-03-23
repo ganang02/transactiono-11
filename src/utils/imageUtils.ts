@@ -29,6 +29,27 @@ export async function takePhoto(): Promise<string | null> {
   }
 }
 
+// Pick photo from gallery
+export async function pickPhoto(): Promise<string | null> {
+  try {
+    const photo = await Camera.getPhoto({
+      quality: 90,
+      allowEditing: true,
+      resultType: CameraResultType.Uri,
+      source: CameraSource.Photos
+    });
+    
+    if (photo && photo.webPath) {
+      return photo.webPath;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error picking photo:', error);
+    return null;
+  }
+}
+
 // Convert a photo URI to base64 for API upload
 export async function convertPhotoToBase64(webPath: string): Promise<string | null> {
   try {

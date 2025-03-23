@@ -11,7 +11,10 @@ import {
   Package,
   MoreVertical,
   Save,
-  X
+  X,
+  Camera,
+  Upload,
+  ImageIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +38,7 @@ import {
 import ProductFilters from "@/components/products/ProductFilters";
 import ExportProductsModal from "@/components/products/ExportProductsModal";
 import { EditProductModal } from "@/components/products/EditProductModal";
+import { takePhoto, pickPhoto, convertPhotoToBase64 } from "@/utils/imageUtils";
 
 interface Product {
   id: string;
@@ -43,6 +47,7 @@ interface Product {
   stock: number;
   category: string;
   createdAt?: string;
+  imageUrl?: string;
 }
 
 const Products = () => {
@@ -64,8 +69,11 @@ const Products = () => {
     name: "",
     price: "",
     stock: "",
-    category: ""
+    category: "",
+    imageBase64: null as string | null
   });
+  
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -247,6 +255,7 @@ const Products = () => {
       price: parseFloat(newProduct.price),
       stock: parseInt(newProduct.stock),
       category: newProduct.category,
+      imageBase64: newProduct.imageBase64
     };
     
     // Call API using mutation
@@ -267,8 +276,10 @@ const Products = () => {
       name: "",
       price: "",
       stock: "",
-      category: ""
+      category: "",
+      imageBase64: null
     });
+    setPhotoPreview(null);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -283,6 +294,60 @@ const Products = () => {
     if (confirm("Apakah Anda yakin ingin menghapus produk ini?")) {
       deleteProductMutation.mutate(productId);
     }
+  };
+  
+  const handleTakePhoto = async () => {
+    try {
+      const photoUri = await takePhoto();
+      if (photoUri) {
+        setPhotoPreview(photoUri);
+        
+        // Convert to base64 for API upload
+        const base64Data = await convertPhotoToBase64(photoUri);
+        setNewProduct({
+          ...newProduct,
+          imageBase64: base64Data
+        });
+      }
+    } catch (error) {
+      console.error("Error taking photo:", error);
+      toast({
+        title: "Gagal mengambil foto",
+        description: "Terjadi kesalahan saat mengambil foto",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const handlePickPhoto = async () => {
+    try {
+      const photoUri = await pickPhoto();
+      if (photoUri) {
+        setPhotoPreview(photoUri);
+        
+        // Convert to base64 for API upload
+        const base64Data = await convertPhotoToBase64(photoUri);
+        setNewProduct({
+          ...newProduct,
+          imageBase64: base64Data
+        });
+      }
+    } catch (error) {
+      console.error("Error picking photo:", error);
+      toast({
+        title: "Gagal memilih foto",
+        description: "Terjadi kesalahan saat memilih foto",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const handleRemovePhoto = () => {
+    setPhotoPreview(null);
+    setNewProduct({
+      ...newProduct,
+      imageBase64: null
+    });
   };
 
   // Get unique categories for filter
@@ -391,9 +456,20 @@ const Products = () => {
               filteredProducts.map((product, index) => (
                 <SlideUpTransition key={product.id} show={true} duration={300 + index * 30}>
                   <div className="grid grid-cols-12 py-4 px-4 border-b hover:bg-gray-50 transition-colors items-center">
-                    <div className="col-span-6">
-                      <div className="font-medium">{product.name}</div>
-                      <div className="text-sm text-gray-500">{product.category}</div>
+                    <div className="col-span-6 flex items-center gap-3">
+                      {product.imageUrl ? (
+                        <div className="w-10 h-10 rounded-md overflow-hidden flex-shrink-0">
+                          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center flex-shrink-0">
+                          <Package className="h-5 w-5 text-gray-400" />
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium">{product.name}</div>
+                        <div className="text-sm text-gray-500">{product.category}</div>
+                      </div>
                     </div>
                     <div className="col-span-3 text-right">{formatCurrency(product.price)}</div>
                     <div className="col-span-2 text-right">
@@ -476,6 +552,52 @@ const Products = () => {
                     onChange={handleInputChange} 
                     placeholder="Masukkan kategori" 
                   />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Gambar Produk</label>
+                  
+                  {photoPreview ? (
+                    <div className="relative w-full h-40 mb-2">
+                      <img 
+                        src={photoPreview} 
+                        alt="Product preview" 
+                        className="w-full h-full object-cover rounded-md"
+                      />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8 rounded-full"
+                        onClick={handleRemovePhoto}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-gray-300 rounded-md py-8 flex flex-col items-center justify-center text-gray-500">
+                      <ImageIcon className="h-12 w-12 mb-2" />
+                      <p className="text-sm">Belum ada gambar</p>
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-2 mt-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 gap-2"
+                      onClick={handleTakePhoto}
+                    >
+                      <Camera className="h-4 w-4" />
+                      Ambil Foto
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 gap-2"
+                      onClick={handlePickPhoto}
+                    >
+                      <Upload className="h-4 w-4" />
+                      Pilih Foto
+                    </Button>
+                  </div>
                 </div>
                 
                 <div className="pt-4 flex justify-end space-x-2">
