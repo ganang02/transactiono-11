@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Calendar, FileDown, Search, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -130,18 +129,25 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
       const csvData = filteredSales.map(item => [
         item.productName,
         item.quantity,
-        item.price,
-        item.revenue
+        formatCurrency(item.price).replace(/[^\d.-]/g, ''),  // Remove currency symbol for CSV
+        formatCurrency(item.revenue).replace(/[^\d.-]/g, '')
       ]);
       
-      csvData.push(["TOTAL", totalQuantity, "", totalRevenue]);
+      // Add total row
+      csvData.push([
+        "TOTAL", 
+        totalQuantity.toString(), 
+        "", 
+        totalRevenue ? formatCurrency(totalRevenue).replace(/[^\d.-]/g, '') : "0"
+      ]);
       
+      // Format the CSV content
       let csvContent = headers.join(",") + "\n";
       
       csvData.forEach(row => {
         const formattedRow = row.map(cell => {
-          if (typeof cell === 'string' && cell.includes(',')) {
-            return `"${cell}"`;
+          if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"'))) {
+            return `"${cell.replace(/"/g, '""')}"`;
           }
           return cell;
         });
@@ -155,7 +161,7 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
       if (success) {
         toast({
           title: "Ekspor berhasil",
-          description: "Laporan penjualan berhasil diekspor ke Excel"
+          description: "Laporan penjualan berhasil diekspor"
         });
       }
     } catch (error) {

@@ -156,18 +156,25 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
       const csvData = filteredSales.map(item => [
         item.productName,
         item.quantity,
-        item.price,
-        item.revenue
+        formatCurrency(item.price).replace(/[^\d.-]/g, ''),  // Remove currency symbol for CSV
+        formatCurrency(item.revenue).replace(/[^\d.-]/g, '')
       ]);
       
-      csvData.push(["TOTAL", totalQuantity, "", totalRevenue]);
+      // Add total row
+      csvData.push([
+        "TOTAL", 
+        totalQuantity.toString(), 
+        "", 
+        totalRevenue ? formatCurrency(totalRevenue).replace(/[^\d.-]/g, '') : "0"
+      ]);
       
+      // Format the CSV content
       let csvContent = headers.join(",") + "\n";
       
       csvData.forEach(row => {
         const formattedRow = row.map(cell => {
-          if (typeof cell === 'string' && cell.includes(',')) {
-            return `"${cell}"`;
+          if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"'))) {
+            return `"${cell.replace(/"/g, '""')}"`;
           }
           return cell;
         });
@@ -179,7 +186,7 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
       if (success) {
         toast({
           title: "Ekspor berhasil",
-          description: "Laporan penjualan bulanan berhasil diekspor ke Excel"
+          description: "Laporan penjualan bulanan berhasil diekspor"
         });
       }
     } catch (error) {

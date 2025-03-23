@@ -75,6 +75,18 @@ CREATE TABLE IF NOT EXISTS product_images (
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
+-- Sales reports table to store report data
+CREATE TABLE IF NOT EXISTS sales_reports (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  report_type ENUM('daily', 'monthly', 'custom') NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  total_sales DECIMAL(10, 2) NOT NULL,
+  total_items INT NOT NULL,
+  report_data TEXT NOT NULL, -- JSON data of the report
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Insert default store info
 INSERT INTO store_info (name, whatsapp, address, notes)
 VALUES ('Coffee Corner', '+6281234567890', 'Jl. Sudirman No. 123, Jakarta', 'Open daily from 8 AM to 10 PM');
