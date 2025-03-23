@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +10,7 @@ import {
   StickyNote,
   Upload,
   Check,
-  X,
-  Edit3,
-  Image
+  X
 } from "lucide-react";
 import { SlideUpTransition } from "@/hooks/useTransition";
 import { storeInfo } from "@/data/mockData";
@@ -55,8 +52,8 @@ const Store = () => {
     // Validate form fields
     if (!store.name || !store.whatsapp || !store.address) {
       toast({
-        title: "Informasi tidak lengkap",
-        description: "Mohon isi semua kolom yang diperlukan",
+        title: "Missing information",
+        description: "Please fill in all required fields",
         variant: "destructive",
       });
       return;
@@ -64,8 +61,8 @@ const Store = () => {
     
     // Save changes (in a real app, this would be an API call)
     toast({
-      title: "Informasi toko diperbarui",
-      description: "Perubahan berhasil disimpan",
+      title: "Store information updated",
+      description: "Your changes have been saved successfully",
     });
     
     setIsEditing(false);
@@ -75,28 +72,24 @@ const Store = () => {
     <div className="container px-4 mx-auto max-w-4xl pb-8 animate-fade-in">
       <SlideUpTransition show={true} duration={300}>
         <GlassCard className="mt-6 overflow-hidden">
-          <div className="p-6 border-b bg-gradient-to-r from-primary/10 to-transparent">
+          <div className="p-6 border-b">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                <StoreIcon className="h-5 w-5 text-primary" />
-                Informasi Toko
-              </h2>
+              <h2 className="text-xl font-semibold">Store Information</h2>
               <div>
                 {isEditing ? (
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleCancel} className="gap-1.5">
-                      <X className="h-4 w-4" />
-                      Batal
+                    <Button variant="outline" onClick={handleCancel}>
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
                     </Button>
-                    <Button onClick={handleSave} className="gap-1.5 bg-primary hover:bg-primary/90">
-                      <Check className="h-4 w-4" />
-                      Simpan
+                    <Button onClick={handleSave}>
+                      <Check className="h-4 w-4 mr-2" />
+                      Save
                     </Button>
                   </div>
                 ) : (
-                  <Button onClick={() => setIsEditing(true)} className="gap-1.5">
-                    <Edit3 className="h-4 w-4" />
-                    Edit Informasi
+                  <Button onClick={() => setIsEditing(true)}>
+                    Edit Information
                   </Button>
                 )}
               </div>
@@ -105,7 +98,7 @@ const Store = () => {
           
           <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="col-span-1 flex flex-col items-center">
-              <div className="w-36 h-36 rounded-full overflow-hidden bg-muted/50 mb-4 relative shadow-md border border-muted">
+              <div className="w-36 h-36 rounded-full overflow-hidden bg-muted mb-4 relative">
                 {previewImage ? (
                   <img 
                     src={previewImage} 
@@ -114,7 +107,7 @@ const Store = () => {
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-primary/10">
-                    <Image className="h-12 w-12 text-primary/40" />
+                    <StoreIcon className="h-12 w-12 text-primary/40" />
                   </div>
                 )}
                 
@@ -123,7 +116,7 @@ const Store = () => {
                     <label htmlFor="logo-upload" className="cursor-pointer">
                       <div className="flex flex-col items-center justify-center text-white">
                         <Upload className="h-6 w-6 mb-1" />
-                        <span className="text-xs">Ganti Logo</span>
+                        <span className="text-xs">Change Logo</span>
                       </div>
                       <input 
                         type="file" 
@@ -147,60 +140,60 @@ const Store = () => {
             
             <div className="col-span-2 space-y-6">
               <div>
-                <label className="text-sm font-medium mb-1 block">Nama Toko</label>
+                <label className="text-sm font-medium mb-1 block">Store Name</label>
                 <div className="relative">
                   <StoreIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     name="name"
                     value={store.name}
                     onChange={handleChange}
-                    placeholder="Masukkan nama toko"
-                    className="pl-10 bg-white/70 dark:bg-black/10 border-primary/20 focus-visible:ring-primary/30"
+                    placeholder="Enter store name"
+                    className="pl-10"
                     readOnly={!isEditing}
                   />
                 </div>
               </div>
               
               <div>
-                <label className="text-sm font-medium mb-1 block">Nomor WhatsApp</label>
+                <label className="text-sm font-medium mb-1 block">WhatsApp Number</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     name="whatsapp"
                     value={store.whatsapp}
                     onChange={handleChange}
-                    placeholder="Masukkan nomor WhatsApp"
-                    className="pl-10 bg-white/70 dark:bg-black/10 border-primary/20 focus-visible:ring-primary/30"
+                    placeholder="Enter WhatsApp number"
+                    className="pl-10"
                     readOnly={!isEditing}
                   />
                 </div>
               </div>
               
               <div>
-                <label className="text-sm font-medium mb-1 block">Alamat</label>
+                <label className="text-sm font-medium mb-1 block">Address</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Textarea
                     name="address"
                     value={store.address}
                     onChange={handleChange}
-                    placeholder="Masukkan alamat toko"
-                    className="pl-10 min-h-[80px] bg-white/70 dark:bg-black/10 border-primary/20 focus-visible:ring-primary/30"
+                    placeholder="Enter store address"
+                    className="pl-10 min-h-[80px]"
                     readOnly={!isEditing}
                   />
                 </div>
               </div>
               
               <div>
-                <label className="text-sm font-medium mb-1 block">Catatan (Opsional)</label>
+                <label className="text-sm font-medium mb-1 block">Notes (Optional)</label>
                 <div className="relative">
                   <StickyNote className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Textarea
                     name="notes"
                     value={store.notes}
                     onChange={handleChange}
-                    placeholder="Masukkan catatan tambahan tentang toko Anda"
-                    className="pl-10 min-h-[80px] bg-white/70 dark:bg-black/10 border-primary/20 focus-visible:ring-primary/30"
+                    placeholder="Enter additional notes about your store"
+                    className="pl-10 min-h-[80px]"
                     readOnly={!isEditing}
                   />
                 </div>

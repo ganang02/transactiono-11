@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { Calendar, FileDown, Search, FileSpreadsheet, TrendingUp, ShoppingBag, DollarSign } from "lucide-react";
+import { Calendar, FileDown, Search, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GlassCard from "@/components/ui-custom/GlassCard";
@@ -36,7 +36,7 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
   const [isExporting, setIsExporting] = useState(false);
 
   const { data: transactions, isLoading: isTransactionsLoading } = useQuery({
-    queryKey: ['transactions', dateRange?.from?.toISOString(), dateRange?.to?.toISOString()],
+    queryKey: ['transactions', dateRange?.from, dateRange?.to],
     queryFn: () => fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions`)
       .then(res => {
         if (!res.ok) {
@@ -188,69 +188,61 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
   };
 
   return (
-    <GlassCard className={`p-0 overflow-hidden rounded-xl shadow-lg ${className}`}>
-      <div className="bg-gradient-to-r from-primary/20 to-primary/5 p-4 border-b border-muted">
-        <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-          <div className="flex items-center gap-2">
-            <div className="bg-primary/20 p-2 rounded-lg shadow-inner">
-              <TrendingUp className="h-5 w-5 text-primary" />
-            </div>
-            <h2 className="text-lg font-semibold">Laporan Penjualan</h2>
-          </div>
-          <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            <div className="relative w-full md:w-64">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Cari produk..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 w-full bg-background/80 backdrop-blur-sm border-primary/20 focus-visible:ring-primary/30"
-              />
-            </div>
-            <DateRangePicker 
-              date={dateRange} 
-              onDateChange={setDateRange} 
+    <GlassCard className={`p-4 overflow-hidden ${className}`}>
+      <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+        <h2 className="text-lg font-semibold">Laporan Penjualan</h2>
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Cari produk..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 w-full bg-background/50 backdrop-blur-sm"
             />
-            <Button 
-              variant="outline" 
-              className="gap-2 whitespace-nowrap bg-primary/10 hover:bg-primary/20 border-primary/20"
-              onClick={exportToExcel}
-              disabled={isExporting}
-            >
-              {isExporting ? (
-                <>
-                  <div className="h-4 w-4 border-2 border-current border-t-transparent animate-spin rounded-full"></div>
-                  <span>Mengekspor...</span>
-                </>
-              ) : (
-                <>
-                  <FileSpreadsheet className="h-4 w-4" />
-                  <span>Ekspor ke Excel</span>
-                </>
-              )}
-            </Button>
           </div>
+          <DateRangePicker 
+            date={dateRange} 
+            onDateChange={setDateRange} 
+          />
+          <Button 
+            variant="outline" 
+            className="gap-2 whitespace-nowrap"
+            onClick={exportToExcel}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <>
+                <div className="h-4 w-4 border-2 border-current border-t-transparent animate-spin rounded-full"></div>
+                <span>Mengekspor...</span>
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet className="h-4 w-4" />
+                <span>Ekspor ke Excel</span>
+              </>
+            )}
+          </Button>
         </div>
       </div>
       
-      <div className="overflow-x-auto">
+      <div className="rounded-md border overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-primary/5 hover:bg-primary/10">
-              <TableHead className="w-[40%] font-semibold">Nama Produk</TableHead>
-              <TableHead className="text-center font-semibold">Jumlah Terjual</TableHead>
-              <TableHead className="text-center font-semibold">Harga Satuan</TableHead>
-              <TableHead className="text-right font-semibold">Total Pendapatan</TableHead>
+            <TableRow>
+              <TableHead>Nama Produk</TableHead>
+              <TableHead className="text-center">Jumlah Terjual</TableHead>
+              <TableHead className="text-center">Harga Satuan</TableHead>
+              <TableHead className="text-right">Total Pendapatan</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isTransactionsLoading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12">
-                  <div className="flex flex-col items-center justify-center gap-3">
-                    <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-                    <p className="text-sm text-muted-foreground">Memuat data penjualan...</p>
+                <TableCell colSpan={4} className="text-center py-6">
+                  <div className="flex justify-center">
+                    <div className="animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full"></div>
                   </div>
                 </TableCell>
               </TableRow>
@@ -258,31 +250,25 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
               <>
                 {filteredSales.map((item, index) => (
                   <SlideUpTransition key={item.productId} show={true} duration={300 + index * 30}>
-                    <TableRow key={item.productId} className="hover:bg-primary/5 transition-colors">
+                    <TableRow key={item.productId}>
                       <TableCell className="font-medium">{item.productName}</TableCell>
                       <TableCell className="text-center">{item.quantity}</TableCell>
                       <TableCell className="text-center">{formatCurrency(item.price)}</TableCell>
-                      <TableCell className="text-right font-semibold text-primary/90">{formatCurrency(item.revenue)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.revenue)}</TableCell>
                     </TableRow>
                   </SlideUpTransition>
                 ))}
-                <TableRow className="bg-primary/10 font-bold">
+                <TableRow className="bg-muted/30">
                   <TableCell className="font-bold">TOTAL</TableCell>
                   <TableCell className="text-center font-bold">{totalQuantity}</TableCell>
                   <TableCell className="text-center"></TableCell>
-                  <TableCell className="text-right font-bold text-primary">{formatCurrency(totalRevenue)}</TableCell>
+                  <TableCell className="text-right font-bold">{formatCurrency(totalRevenue)}</TableCell>
                 </TableRow>
               </>
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-16">
-                  <div className="flex flex-col items-center justify-center gap-3">
-                    <div className="bg-muted/30 p-4 rounded-full">
-                      <Calendar className="h-10 w-10 text-muted-foreground/50" />
-                    </div>
-                    <p className="text-lg font-medium text-muted-foreground">Tidak ada data penjualan untuk periode yang dipilih</p>
-                    <p className="text-sm text-muted-foreground/70">Coba pilih rentang tanggal yang berbeda</p>
-                  </div>
+                <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                  Tidak ada data penjualan untuk periode yang dipilih
                 </TableCell>
               </TableRow>
             )}
@@ -291,26 +277,10 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
       </div>
       
       {filteredSales.length > 0 && (
-        <div className="p-6 border-t border-muted bg-gradient-to-b from-white to-muted/10 dark:from-transparent dark:to-primary/5">
-          <div className="ml-auto w-full md:w-80 bg-primary/10 p-6 rounded-xl shadow-inner border border-primary/20">
-            <div className="flex justify-between mb-4 items-center">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-primary/20">
-                  <ShoppingBag className="h-4 w-4 text-primary" />
-                </div>
-                <span className="text-muted-foreground">Total Produk Terjual:</span>
-              </div>
-              <span className="font-medium text-lg">{totalQuantity}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-primary/20">
-                  <DollarSign className="h-4 w-4 text-primary" />
-                </div>
-                <span className="text-lg font-medium">Total Pendapatan:</span>
-              </div>
-              <span className="text-xl font-bold text-primary">{formatCurrency(totalRevenue || 0)}</span>
-            </div>
+        <div className="mt-4 text-right">
+          <div className="inline-block bg-muted/20 p-3 rounded-lg">
+            <h3 className="text-lg font-semibold mb-1">Total Pendapatan: {formatCurrency(totalRevenue || 0)}</h3>
+            <p className="text-sm text-muted-foreground">Total Produk Terjual: {totalQuantity}</p>
           </div>
         </div>
       )}
