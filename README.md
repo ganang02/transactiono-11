@@ -1,20 +1,29 @@
 
 # POS System Application
 
-A simple POS (Point of Sale) system with MySQL database integration.
+A simple POS (Point of Sale) system with MySQL database integration and Bluetooth printer support.
+
+## Fitur
+
+- Real-time inventory management dengan database MySQL
+- Sales dan transaction tracking
+- Dashboard dengan analytics
+- Cetak struk via Bluetooth Printer
+- Mobile application (APK) support
+- Export data ke Excel
 
 ## Setup Instructions
 
-### Backend Setup on cPanel:
+### Backend Setup pada cPanel:
 
-1. Upload the server folder to your cPanel hosting.
+1. Upload folder server ke hosting cPanel Anda.
 
-2. Create a MySQL database in cPanel if you don't already have one.
+2. Buat database MySQL di cPanel jika Anda belum memilikinya.
 
-3. Create the database schema by importing `server/database_schema.sql` using phpMyAdmin in cPanel.
+3. Buat schema database dengan mengimport `server/database_schema.sql` menggunakan phpMyAdmin di cPanel.
 
-4. Set up the environment variables for the backend server:
-   Create or update the server/.env file with your MySQL credentials:
+4. Setup environment variables untuk backend server:
+   Buat atau update file server/.env dengan kredensial MySQL Anda:
    ```
    PORT=5000
    DB_HOST=localhost
@@ -23,106 +32,149 @@ A simple POS (Point of Sale) system with MySQL database integration.
    DB_NAME=your_cpanel_db_name
    ```
 
-5. Set up the backend server on cPanel:
-   - Make sure Node.js is available on your cPanel hosting
-   - Use SSH access or cPanel's terminal to navigate to the server folder
-   - Run `npm install` to install dependencies
-   - Set up a Node.js app or use a tool like PM2 to keep your app running
+5. Setup backend server di cPanel:
+   - Pastikan Node.js tersedia di hosting cPanel Anda
+   - Gunakan akses SSH atau terminal cPanel untuk navigasi ke folder server
+   - Jalankan `npm install` untuk menginstal dependencies
+   - Setup Node.js app atau gunakan tool seperti PM2 untuk menjaga aplikasi tetap berjalan
 
-### Frontend Setup for Mobile APK:
+### Frontend Setup untuk Mobile APK:
 
-1. Update the API URL in src/.env to point to your cPanel domain:
+1. Update API URL di src/.env untuk mengarah ke domain cPanel Anda:
    ```
    VITE_API_URL=https://your-cpanel-domain.com/api
    ```
 
-2. Build the APK as described below.
+2. Build APK seperti instruksi di bawah.
 
-### Alternative: Running Both Frontend and Backend Locally:
+### Alternatif: Menjalankan Frontend dan Backend secara Lokal:
 
-If you want to test locally first:
+Jika Anda ingin menguji secara lokal terlebih dahulu:
 
-1. Set the API URL to localhost:
+1. Set API URL ke localhost:
    ```
    VITE_API_URL=http://localhost:5000/api
    ```
 
-2. Run the backend server locally:
+2. Jalankan backend server secara lokal:
    ```
    cd server
    npm install
    npm start
    ```
 
-3. Run the frontend locally:
+3. Jalankan frontend secara lokal:
    ```
    npm install
    npm run dev
    ```
 
-### Build APK for Android:
+### Build APK untuk Android:
 
-1. Build the web app:
+1. Build aplikasi web:
    ```
    npm run build
    ```
 
-2. Add Android platform (if not already added):
+2. Tambahkan platform Android (jika belum ada):
    ```
    npx cap add android
    ```
 
-3. Update Android native project with latest web build:
+3. Update project Android native dengan build web terbaru:
    ```
    npx cap sync android
    ```
 
-4. Open in Android Studio to build the APK:
+4. Buka di Android Studio untuk build APK:
    ```
    npx cap open android
    ```
 
-5. In Android Studio:
-   - Wait for Gradle sync to finish
-   - From the menu, select Build > Build Bundle(s) / APK(s) > Build APK(s)
-   - The APK will be generated in android/app/build/outputs/apk/debug/
+5. Di Android Studio:
+   - Tunggu hingga Gradle sync selesai
+   - Dari menu, pilih Build > Build Bundle(s) / APK(s) > Build APK(s)
+   - APK akan dibuat di android/app/build/outputs/apk/debug/
 
-6. To install directly on a connected device:
+6. Untuk menginstal langsung di perangkat yang terhubung:
    ```
    npx cap run android
    ```
 
-## Connecting APK to cPanel Database
+## Panduan Menggunakan Printer Bluetooth
 
-Your deployed app will connect to the MySQL database on your cPanel hosting through the Node.js API server which should also be deployed on your cPanel hosting. Make sure that:
+### Menghubungkan Printer Bluetooth:
 
-1. Your cPanel hosting allows external connections to its Node.js applications (check that the port is open and accessible)
-2. The API_URL in your app correctly points to your cPanel domain
-3. The Node.js server is properly connecting to your MySQL database
+1. Di aplikasi POS, buka menu "Settings"
 
-## Features
+2. Cari bagian "Pengaturan Printer"
 
-- Real-time inventory management with MySQL database
-- Sales and transaction tracking
-- Dashboard with analytics
-- Receipt printing via Bluetooth
-- Mobile application support
+3. Klik tombol "Cari printer Bluetooth"
+
+4. Pastikan printer Bluetooth Anda sudah menyala dan dalam mode pairing
+
+5. Aplikasi akan memindai dan menampilkan daftar perangkat yang ditemukan
+
+6. Pilih printer Anda dari daftar tersebut dengan mengkliknya
+
+7. Setelah terhubung, Anda akan melihat nama printer terpilih
+
+### Mencetak Struk:
+
+1. Buat transaksi baru di halaman Kasir
+
+2. Setelah transaksi selesai, klik tombol "Cetak Struk" 
+
+3. Pilih printer yang telah terhubung
+
+4. Tinjau preview struk jika tersedia
+
+5. Klik "Cetak" untuk mengirim data ke printer
+
+### Troubleshooting Bluetooth:
+
+1. **Printer tidak terdeteksi:**
+   - Pastikan printer menyala dan dalam mode pairing
+   - Pastikan Bluetooth diaktifkan di perangkat Anda
+   - Restart printer dan coba kembali
+
+2. **Izin ditolak:**
+   - Di perangkat Android, pastikan aplikasi memiliki izin Bluetooth dan Lokasi
+   - Buka pengaturan aplikasi di perangkat dan berikan semua izin yang diminta
+
+3. **Koneksi terputus:**
+   - Bluetooth dapat terputus jika terlalu lama tidak digunakan
+   - Gunakan tombol "Reconnect" atau hubungkan ulang printer
+
+4. **Printer tersambung tapi tidak mencetak:**
+   - Pastikan printer memiliki kertas
+   - Coba matikan dan nyalakan kembali printer
+   - Pastikan format struk kompatibel dengan printer Anda
+
+## Menghubungkan APK ke Database di cPanel
+
+Aplikasi yang diinstal akan terhubung ke database MySQL di hosting cPanel Anda melalui server API Node.js yang juga harus di-deploy di hosting cPanel. Pastikan bahwa:
+
+1. Hosting cPanel Anda mengizinkan koneksi eksternal ke aplikasi Node.js (periksa port terbuka dan dapat diakses)
+2. API_URL di aplikasi Anda mengarah ke domain cPanel dengan benar
+3. Server Node.js terhubung dengan benar ke database MySQL Anda
 
 ## API Endpoints
 
-The backend provides the following API endpoints:
+Backend menyediakan endpoint API berikut:
 
-- `/api/products` - Manage products
-- `/api/transactions` - Record and retrieve transactions
-- `/api/store` - Store information
-- `/api/dashboard` - Dashboard analytics data
+- `/api/products` - Pengelolaan produk
+- `/api/transactions` - Rekam dan ambil transaksi
+- `/api/store` - Informasi toko
+- `/api/dashboard` - Data analitik dashboard
+- `/api/exports` - Export data ke Excel
 
-## Database Structure
+## Struktur Database
 
-The MySQL database includes the following tables:
+Database MySQL mencakup tabel-tabel berikut:
 
-- `products` - Product inventory
-- `transactions` - Sales transactions
-- `transaction_items` - Items in each transaction
-- `store_info` - Store information
-
+- `products` - Inventaris produk
+- `transactions` - Transaksi penjualan
+- `transaction_items` - Item dalam setiap transaksi
+- `store_info` - Informasi toko
+- `exports` - History export data
