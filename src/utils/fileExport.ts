@@ -1,7 +1,6 @@
 
 import { toast } from "@/hooks/use-toast";
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { useMobile } from "@/hooks/use-mobile";
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 // Check if we're running on a mobile device
 const isMobileDevice = () => {
@@ -16,7 +15,7 @@ export async function saveFile(fileName: string, data: string, mimeType: string)
         path: fileName,
         data: data,
         directory: Directory.Documents,
-        encoding: 'utf8',
+        encoding: Encoding.UTF8,
       });
       
       toast({

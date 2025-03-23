@@ -28,6 +28,10 @@ const config: CapacitorConfig = {
       backgroundColor: "#F7F8FB",
       androidSplashResourceName: "splash",
       androidScaleType: "CENTER_CROP"
+    },
+    Filesystem: {
+      // Filesystem plugin configuration
+      appendWithoutOverwrite: true
     }
   },
   android: {
@@ -41,7 +45,10 @@ const config: CapacitorConfig = {
       "android.permission.BLUETOOTH_SCAN",
       "android.permission.BLUETOOTH_ADVERTISE",
       "android.permission.ACCESS_FINE_LOCATION",
-      "android.permission.ACCESS_COARSE_LOCATION"
+      "android.permission.ACCESS_COARSE_LOCATION",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.MANAGE_EXTERNAL_STORAGE"
     ]
   }
 };
