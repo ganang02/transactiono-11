@@ -473,7 +473,8 @@ const Cashier = () => {
 
         <TabsContent value="new" className="mt-0">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
+            {/* Cart component (now on the right) */}
+            <div className="lg:col-span-2 order-2 lg:order-1 space-y-6">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">
                   <Input
@@ -591,7 +592,8 @@ const Cashier = () => {
               </GlassCard>
             </div>
 
-            <div className="space-y-6">
+            {/* Product list (now on the left) */}
+            <div className="order-1 lg:order-2 space-y-6">
               <GlassCard className="overflow-hidden flex flex-col max-h-[calc(100vh-12rem)]">
                 <div className="p-4 border-b flex items-center justify-between">
                   <div className="flex items-center">
