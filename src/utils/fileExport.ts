@@ -60,3 +60,38 @@ export async function saveFile(fileName: string, data: string, mimeType: string)
     return false;
   }
 }
+
+// Save a remote image to local file system
+export async function saveRemoteImage(imageUrl: string, fileName: string): Promise<string | null> {
+  try {
+    // Fetch the image
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    
+    // Convert blob to base64
+    const reader = new FileReader();
+    const base64Data = await new Promise<string>((resolve, reject) => {
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        // Remove the data:image/jpeg;base64, prefix
+        const base64Content = base64String.split(',')[1];
+        resolve(base64Content);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    
+    // Save the file using Filesystem API
+    const result = await Filesystem.writeFile({
+      path: fileName,
+      data: base64Data,
+      directory: Directory.Cache,
+      recursive: true
+    });
+    
+    return result.uri;
+  } catch (error) {
+    console.error("Error saving remote image:", error);
+    return null;
+  }
+}

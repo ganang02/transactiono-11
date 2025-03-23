@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { FileDown, File, X, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,13 +45,14 @@ const ProductsExport = ({
       const filename = `products_${dateStr}.csv`;
       
       // Create CSV content
-      const headers = ["ID", "Nama Produk", "Kategori", "Harga", "Stok"];
+      const headers = ["ID", "Nama Produk", "Kategori", "Harga", "Stok", "URL Gambar"];
       const rows = products.map(product => [
         product.id,
         product.name,
         product.category,
         product.price,
-        product.stock
+        product.stock,
+        product.imageUrl || ""
       ]);
       
       // Convert to CSV format

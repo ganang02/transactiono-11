@@ -1,8 +1,11 @@
+
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 
 dotenv.config();
 
@@ -11,7 +14,14 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '10mb' })); // Increase size limit for image uploads
+app.use(express.static('public'));
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'public', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Database connection pool
 const pool = mysql.createPool({
@@ -36,11 +46,34 @@ app.get('/api/ping', async (req, res) => {
   }
 });
 
+// Save base64 image to file
+function saveImage(base64Data, filename) {
+  return new Promise((resolve, reject) => {
+    const imagePath = path.join(uploadsDir, filename);
+    fs.writeFile(imagePath, base64Data, 'base64', (err) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(`/uploads/${filename}`);
+      }
+    });
+  });
+}
+
 // API Routes
 // Products
 app.get('/api/products', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM products ORDER BY name ASC');
+    
+    // Add full URL to image paths
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    rows.forEach(product => {
+      if (product.image) {
+        product.imageUrl = `${baseUrl}${product.image}`;
+      }
+    });
+    
     res.json(rows);
   } catch (error) {
     console.error('Error fetching products:', error);
@@ -50,13 +83,28 @@ app.get('/api/products', async (req, res) => {
 
 app.post('/api/products', async (req, res) => {
   try {
-    const { name, price, stock, category } = req.body;
+    const { name, price, stock, category, imageBase64 } = req.body;
+    let imagePath = null;
+    
+    // Save image if provided
+    if (imageBase64) {
+      const filename = `product_${Date.now()}.jpg`;
+      imagePath = await saveImage(imageBase64, filename);
+    }
+    
     const [result] = await pool.query(
-      'INSERT INTO products (name, price, stock, category) VALUES (?, ?, ?, ?)',
-      [name, price, stock, category]
+      'INSERT INTO products (name, price, stock, category, image) VALUES (?, ?, ?, ?, ?)',
+      [name, price, stock, category, imagePath]
     );
     
     const [newProduct] = await pool.query('SELECT * FROM products WHERE id = ?', [result.insertId]);
+    
+    // Add full URL to image path
+    if (newProduct[0].image) {
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      newProduct[0].imageUrl = `${baseUrl}${newProduct[0].image}`;
+    }
+    
     res.status(201).json(newProduct[0]);
   } catch (error) {
     console.error('Error creating product:', error);
@@ -66,15 +114,36 @@ app.post('/api/products', async (req, res) => {
 
 app.put('/api/products/:id', async (req, res) => {
   try {
-    const { name, price, stock, category } = req.body;
+    const { name, price, stock, category, imageBase64 } = req.body;
     const productId = req.params.id;
     
-    await pool.query(
-      'UPDATE products SET name = ?, price = ?, stock = ?, category = ? WHERE id = ?',
-      [name, price, stock, category, productId]
-    );
+    // Check if we need to update the image
+    let imagePath = null;
+    if (imageBase64) {
+      const filename = `product_${productId}_${Date.now()}.jpg`;
+      imagePath = await saveImage(imageBase64, filename);
+      
+      // Update with new image
+      await pool.query(
+        'UPDATE products SET name = ?, price = ?, stock = ?, category = ?, image = ? WHERE id = ?',
+        [name, price, stock, category, imagePath, productId]
+      );
+    } else {
+      // Update without changing image
+      await pool.query(
+        'UPDATE products SET name = ?, price = ?, stock = ?, category = ? WHERE id = ?',
+        [name, price, stock, category, productId]
+      );
+    }
     
     const [updatedProduct] = await pool.query('SELECT * FROM products WHERE id = ?', [productId]);
+    
+    // Add full URL to image path
+    if (updatedProduct[0].image) {
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      updatedProduct[0].imageUrl = `${baseUrl}${updatedProduct[0].image}`;
+    }
+    
     res.json(updatedProduct[0]);
   } catch (error) {
     console.error('Error updating product:', error);
