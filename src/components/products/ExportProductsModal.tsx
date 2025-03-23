@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { saveFile } from "@/utils/fileExport";
 
 interface ExportProductsModalProps {
   products: any[];
@@ -24,8 +25,9 @@ const ExportProductsModal = ({
   onClose
 }: ExportProductsModalProps) => {
   const [format, setFormat] = useState<"csv" | "json">("csv");
+  const [isExporting, setIsExporting] = useState(false);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (products.length === 0) {
       toast({
         title: "Tidak ada data",
@@ -35,59 +37,65 @@ const ExportProductsModal = ({
       return;
     }
 
-    let content: string;
-    let filename: string;
-    let type: string;
+    setIsExporting(true);
+    
+    try {
+      let content: string;
+      let filename: string;
+      let type: string;
 
-    if (format === "csv") {
-      // Create CSV content
-      const headers = ["Nama Produk", "Kategori", "Harga", "Stok"];
-      const rows = products.map(product => [
-        product.name,
-        product.category,
-        product.price,
-        product.stock
-      ]);
+      if (format === "csv") {
+        // Create CSV content
+        const headers = ["Nama Produk", "Kategori", "Harga", "Stok"];
+        const rows = products.map(product => [
+          product.name,
+          product.category,
+          product.price,
+          product.stock
+        ]);
+        
+        // Convert to CSV format
+        content = [
+          headers.join(","),
+          ...rows.map(row => row.join(","))
+        ].join("\n");
+        
+        filename = `products_export_${new Date().toISOString().split("T")[0]}.csv`;
+        type = "text/csv";
+      } else {
+        // Export as JSON
+        const exportData = products.map(product => ({
+          name: product.name,
+          category: product.category,
+          price: product.price,
+          stock: product.stock
+        }));
+        
+        content = JSON.stringify(exportData, null, 2);
+        filename = `products_export_${new Date().toISOString().split("T")[0]}.json`;
+        type = "application/json";
+      }
+
+      const success = await saveFile(filename, content, type);
       
-      // Convert to CSV format
-      content = [
-        headers.join(","),
-        ...rows.map(row => row.join(","))
-      ].join("\n");
-      
-      filename = `products_export_${new Date().toISOString().split("T")[0]}.csv`;
-      type = "text/csv";
-    } else {
-      // Export as JSON
-      const exportData = products.map(product => ({
-        name: product.name,
-        category: product.category,
-        price: product.price,
-        stock: product.stock
-      }));
-      
-      content = JSON.stringify(exportData, null, 2);
-      filename = `products_export_${new Date().toISOString().split("T")[0]}.json`;
-      type = "application/json";
+      if (success) {
+        toast({
+          title: "Ekspor berhasil",
+          description: `Data produk berhasil diekspor sebagai ${format.toUpperCase()}`,
+        });
+        
+        onClose();
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      toast({
+        title: "Ekspor gagal",
+        description: "Terjadi kesalahan saat mengekspor data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
     }
-
-    // Create a download link and trigger download
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast({
-      title: "Ekspor berhasil",
-      description: `Data produk berhasil diekspor sebagai ${format.toUpperCase()}`,
-    });
-    
-    onClose();
   };
 
   return (

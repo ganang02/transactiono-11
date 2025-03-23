@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { saveFile } from "@/utils/fileExport";
 
 const Transactions = () => {
   const [search, setSearch] = useState("");
@@ -200,7 +201,7 @@ const Transactions = () => {
     }
   };
 
-  const exportToCSV = () => {
+  const exportToCSV = async () => {
     if (!filteredTransactions.length) {
       toast({
         title: "Tidak ada data",
@@ -226,14 +227,9 @@ const Transactions = () => {
       csvContent += row.join(",") + "\n";
     });
     
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `transactions-${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const filename = `transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    
+    await saveFile(filename, csvContent, "text/csv;charset=utf-8;");
   };
 
   return (

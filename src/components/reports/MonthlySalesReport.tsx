@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Calendar, FileDown, Search, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO, format, getYear, getMonth } from "date-fns";
+import { saveFile } from "@/utils/fileExport";
 
 interface MonthlySalesReportProps {
   className?: string;
@@ -45,19 +45,16 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString());
   const [isExporting, setIsExporting] = useState(false);
 
-  // Get all transactions
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions`).then(res => res.json()),
   });
 
-  // Generate options for years (last 5 years)
   const yearOptions = Array.from({ length: 5 }, (_, i) => ({
     value: (currentYear - i).toString(),
     label: (currentYear - i).toString()
   }));
   
-  // Generate options for months
   const monthOptions: MonthOption[] = [
     { value: "0", label: "Januari" },
     { value: "1", label: "Februari" },
@@ -73,7 +70,6 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
     { value: "11", label: "Desember" }
   ];
 
-  // Process transactions to get monthly sales
   const getSalesData = () => {
     if (!transactions) return [];
     
@@ -83,18 +79,15 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
     const endDate = endOfMonth(new Date(parseInt(selectedYear), parseInt(selectedMonth)));
     
     transactions.forEach((transaction: any) => {
-      // Skip non-completed transactions
       if (transaction.payment_status !== 'completed' && transaction.status !== 'completed') {
         return;
       }
       
-      // Check if transaction is within selected month
       const transactionDate = parseISO(transaction.date);
       if (!isWithinInterval(transactionDate, { start: startDate, end: endDate })) {
         return;
       }
       
-      // Process transaction items
       transaction.items.forEach((item: any) => {
         const key = item.product_id || item.productId;
         const name = item.product_name || item.productName;
@@ -120,17 +113,14 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
   
   const salesData = getSalesData();
   
-  // Filter by search
   const filteredSales = salesData.filter(item => 
     item.productName.toLowerCase().includes(search.toLowerCase())
   );
   
-  // Calculate totals
   const totalQuantity = filteredSales.reduce((acc, item) => acc + item.quantity, 0);
   const totalRevenue = filteredSales.reduce((acc, item) => acc + item.revenue, 0);
   
-  // Export to Excel (CSV format)
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (filteredSales.length === 0) {
       toast({
         title: "Tidak ada data",
@@ -144,7 +134,7 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
     
     try {
       const monthName = monthOptions.find(m => m.value === selectedMonth)?.label;
-      const filename = `sales_report_${monthName}_${selectedYear}`;
+      const filename = `sales_report_${monthName}_${selectedYear}.csv`;
       
       const headers = ["Nama Produk", "Jumlah Terjual", "Harga Satuan", "Total Pendapatan"];
       
@@ -155,14 +145,12 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
         item.revenue
       ]);
       
-      // Add total row
       csvData.push(["TOTAL", totalQuantity, "", totalRevenue]);
       
       let csvContent = headers.join(",") + "\n";
       
       csvData.forEach(row => {
         const formattedRow = row.map(cell => {
-          // Check if cell is a string and contains commas, then wrap it in quotes
           if (typeof cell === 'string' && cell.includes(',')) {
             return `"${cell}"`;
           }
@@ -171,33 +159,23 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
         csvContent += formattedRow.join(",") + "\n";
       });
       
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `${filename}.csv`);
-      document.body.appendChild(link);
-      link.click();
+      const success = await saveFile(filename, csvContent, "text/csv;charset=utf-8;");
       
-      // Clean up
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        setIsExporting(false);
-        
+      if (success) {
         toast({
           title: "Ekspor berhasil",
           description: "Laporan penjualan bulanan berhasil diekspor ke Excel"
         });
-      }, 100);
+      }
     } catch (error) {
       console.error("Export error:", error);
-      setIsExporting(false);
       toast({
         title: "Ekspor gagal",
         description: "Terjadi kesalahan saat mengekspor data",
         variant: "destructive"
       });
+    } finally {
+      setIsExporting(false);
     }
   };
 

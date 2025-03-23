@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Calendar, FileDown, Search, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import { DateRange } from "react-day-picker";
 import { DateRangePicker } from "@/components/ui-custom/DateRangePicker";
 import { toast } from "@/hooks/use-toast";
 import { startOfDay, endOfDay, isWithinInterval, parseISO, format } from "date-fns";
+import { saveFile } from "@/utils/fileExport";
 
 interface DailySalesReportProps {
   className?: string;
@@ -39,25 +39,21 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
     queryFn: DashboardAPI.getData,
   });
 
-  // Get all transactions
   const { data: transactions } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions`).then(res => res.json()),
   });
 
-  // Process transactions to get daily sales
   const getSalesData = () => {
     if (!transactions) return [];
     
     const salesMap = new Map<string, SalesItem>();
     
     transactions.forEach((transaction: any) => {
-      // Skip non-completed transactions
       if (transaction.payment_status !== 'completed' && transaction.status !== 'completed') {
         return;
       }
       
-      // Check if transaction is within date range
       const transactionDate = parseISO(transaction.date);
       if (dateRange?.from && dateRange?.to) {
         const start = startOfDay(dateRange.from);
@@ -68,7 +64,6 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
         }
       }
       
-      // Process transaction items
       transaction.items.forEach((item: any) => {
         const key = item.product_id || item.productId;
         const name = item.product_name || item.productName;
@@ -94,17 +89,14 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
   
   const salesData = getSalesData();
   
-  // Filter by search
   const filteredSales = salesData.filter(item => 
     item.productName.toLowerCase().includes(search.toLowerCase())
   );
   
-  // Calculate totals
   const totalQuantity = filteredSales.reduce((acc, item) => acc + item.quantity, 0);
   const totalRevenue = filteredSales.reduce((acc, item) => acc + item.revenue, 0);
   
-  // Export to Excel (CSV format)
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (filteredSales.length === 0) {
       toast({
         title: "Tidak ada data",
@@ -132,14 +124,12 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
         item.revenue
       ]);
       
-      // Add total row
       csvData.push(["TOTAL", totalQuantity, "", totalRevenue]);
       
       let csvContent = headers.join(",") + "\n";
       
       csvData.forEach(row => {
         const formattedRow = row.map(cell => {
-          // Check if cell is a string and contains commas, then wrap it in quotes
           if (typeof cell === 'string' && cell.includes(',')) {
             return `"${cell}"`;
           }
@@ -148,33 +138,25 @@ const DailySalesReport = ({ className }: DailySalesReportProps) => {
         csvContent += formattedRow.join(",") + "\n";
       });
       
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `sales_report_${dateRangeText}.csv`);
-      document.body.appendChild(link);
-      link.click();
+      const fileName = `sales_report_${dateRangeText}.csv`;
       
-      // Clean up
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        setIsExporting(false);
-        
+      const success = await saveFile(fileName, csvContent, "text/csv;charset=utf-8;");
+      
+      if (success) {
         toast({
           title: "Ekspor berhasil",
           description: "Laporan penjualan berhasil diekspor ke Excel"
         });
-      }, 100);
+      }
     } catch (error) {
       console.error("Export error:", error);
-      setIsExporting(false);
       toast({
         title: "Ekspor gagal",
         description: "Terjadi kesalahan saat mengekspor data",
         variant: "destructive"
       });
+    } finally {
+      setIsExporting(false);
     }
   };
 
