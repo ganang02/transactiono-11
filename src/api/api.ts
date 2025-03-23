@@ -188,6 +188,10 @@ export const StoreAPI = {
 // Dashboard API
 export const DashboardAPI = {
   getData: () => apiRequest('/dashboard'),
+  
+  getSalesReport: (startDate, endDate) => apiRequest(`/dashboard/sales?start=${startDate}&end=${endDate}`),
+  
+  getMonthlySalesReport: (year, month) => apiRequest(`/dashboard/monthly-sales?year=${year}&month=${month}`),
 };
 
 // Expenses API
@@ -219,4 +223,39 @@ export function formatDate(dateString: string): string {
     hour: '2-digit',
     minute: '2-digit'
   }).format(date);
+}
+
+// Tambahkan fungsi untuk ekspor data ke CSV
+export function exportToCSV(data: any[], headers: string[], filename: string) {
+  if (!data || data.length === 0) {
+    return false;
+  }
+
+  // Add headers
+  let csvContent = headers.join(",") + "\n";
+  
+  // Add data rows
+  data.forEach(row => {
+    const csvRow = row.map((cell: any) => {
+      // Check if cell contains commas or quotes, wrap in quotes if needed
+      if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"'))) {
+        return `"${cell.replace(/"/g, '""')}"`;
+      }
+      return cell;
+    });
+    csvContent += csvRow.join(",") + "\n";
+  });
+  
+  // Create and download the file
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  
+  return true;
 }

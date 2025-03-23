@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   Search, 
@@ -64,7 +63,6 @@ const Transactions = () => {
     printReceipt
   } = useBluetoothPrinter();
 
-  // Listen for search events from the header
   useEffect(() => {
     const handleGlobalSearch = (event: CustomEvent) => {
       setSearch(event.detail);
@@ -77,13 +75,11 @@ const Transactions = () => {
     };
   }, []);
 
-  // Filter transactions based on search, date range, and filters
   useEffect(() => {
     if (!transactionsData) return;
     
     let filtered = [...transactionsData];
     
-    // Apply search filter
     if (search) {
       const searchTerm = search.toLowerCase();
       filtered = filtered.filter(
@@ -95,7 +91,6 @@ const Transactions = () => {
       );
     }
     
-    // Apply date range filter
     if (dateRange?.from) {
       filtered = filtered.filter(transaction => {
         const transactionDate = parseISO(transaction.date);
@@ -105,7 +100,6 @@ const Transactions = () => {
             end: dateRange.to
           });
         }
-        // If only from date is selected, filter transactions on that date
         const from = new Date(dateRange.from);
         from.setHours(0, 0, 0, 0);
         const to = new Date(dateRange.from);
@@ -114,21 +108,18 @@ const Transactions = () => {
       });
     }
     
-    // Apply status filter
     if (statusFilter && statusFilter !== "all") {
       filtered = filtered.filter(
         transaction => transaction.status === statusFilter
       );
     }
     
-    // Apply payment method filter
     if (paymentMethodFilter && paymentMethodFilter !== "all") {
       filtered = filtered.filter(
         transaction => transaction.paymentMethod === paymentMethodFilter
       );
     }
     
-    // Apply sorting
     if (sortField && sortOrder) {
       filtered.sort((a, b) => {
         if (sortField === "date") {
@@ -146,7 +137,6 @@ const Transactions = () => {
     setFilteredTransactions(filtered);
   }, [transactionsData, search, dateRange, statusFilter, paymentMethodFilter, sortField, sortOrder]);
 
-  // Add the missing handleSearch function
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
   };
@@ -191,7 +181,7 @@ const Transactions = () => {
         subtotal: item.subtotal
       })),
       subtotal: transaction.total,
-      tax: 0, // Removed tax calculation
+      tax: 0,
       total: transaction.total,
       paymentMethod: transaction.paymentMethod,
       amountPaid: transaction.amountPaid,
@@ -303,7 +293,7 @@ const Transactions = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Metode Pembayaran</p>
-                      <p className="mt-1 capitalize">{transaction.paymentMethod}</p>
+                      <p className="mt-1 capitalize">{transaction.paymentMethod || "Belum dibayar"}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Receipt</p>
@@ -312,11 +302,11 @@ const Transactions = () => {
                   </div>
                 </div>
                 
-                <h3 className="font-medium mb-3">Items</h3>
+                <h3 className="font-medium mb-3">Daftar Barang</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b">
+                      <tr className="border-b bg-muted/30">
                         <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">Produk</th>
                         <th className="text-center py-2 px-4 text-sm font-medium text-muted-foreground">Harga</th>
                         <th className="text-center py-2 px-4 text-sm font-medium text-muted-foreground">Jumlah</th>
@@ -325,8 +315,8 @@ const Transactions = () => {
                     </thead>
                     <tbody>
                       {transaction.items.map((item) => (
-                        <tr key={item.id} className="border-b last:border-b-0">
-                          <td className="py-3 px-4">{item.productName}</td>
+                        <tr key={item.id} className="border-b last:border-b-0 hover:bg-muted/10">
+                          <td className="py-3 px-4 font-medium">{item.productName}</td>
                           <td className="py-3 px-4 text-center">{formatCurrency(item.price)}</td>
                           <td className="py-3 px-4 text-center">{item.quantity}</td>
                           <td className="py-3 px-4 text-right">{formatCurrency(item.subtotal)}</td>
@@ -342,6 +332,18 @@ const Transactions = () => {
                       <span className="text-muted-foreground">Subtotal</span>
                       <span>{formatCurrency(transaction.total)}</span>
                     </div>
+                    {transaction.amountPaid && (
+                      <>
+                        <div className="flex justify-between py-2 text-sm">
+                          <span className="text-muted-foreground">Dibayar</span>
+                          <span>{formatCurrency(transaction.amountPaid)}</span>
+                        </div>
+                        <div className="flex justify-between py-2 text-sm">
+                          <span className="text-muted-foreground">Kembalian</span>
+                          <span>{formatCurrency(transaction.change || 0)}</span>
+                        </div>
+                      </>
+                    )}
                     <div className="flex justify-between py-2 font-medium text-lg border-t mt-2">
                       <span>Total</span>
                       <span>{formatCurrency(transaction.total)}</span>
@@ -389,7 +391,6 @@ const Transactions = () => {
             </div>
           </div>
 
-          {/* Filters panel */}
           {showFilters && (
             <GlassCard className="p-4 mb-4">
               <div className="flex justify-between items-center mb-4">
@@ -454,7 +455,7 @@ const Transactions = () => {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b">
+                    <tr className="border-b bg-muted/30">
                       <th className="py-3 px-4 text-left font-medium text-muted-foreground text-sm">ID Transaksi</th>
                       <th className="py-3 px-4 text-left font-medium text-muted-foreground text-sm">
                         <div className="flex items-center cursor-pointer" onClick={() => handleSort("date")}>
@@ -470,6 +471,7 @@ const Transactions = () => {
                           <ArrowUpDown className={`ml-1 h-3.5 w-3.5 ${sortField === "total" ? "text-primary" : ""}`} />
                         </div>
                       </th>
+                      <th className="py-3 px-4 text-center font-medium text-muted-foreground text-sm">Barang</th>
                       <th className="py-3 px-4 text-center font-medium text-muted-foreground text-sm">Aksi</th>
                     </tr>
                   </thead>
@@ -494,8 +496,11 @@ const Transactions = () => {
                               <span className="capitalize">{transaction.status}</span>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-center capitalize">{transaction.paymentMethod}</td>
+                          <td className="py-3 px-4 text-center capitalize">{transaction.paymentMethod || "-"}</td>
                           <td className="py-3 px-4 text-right font-medium">{formatCurrency(transaction.total)}</td>
+                          <td className="py-3 px-4 text-center">
+                            {transaction.items?.length} item{transaction.items?.length !== 1 ? 's' : ''}
+                          </td>
                           <td className="py-3 px-4">
                             <div className="flex justify-center gap-1">
                               <Button 

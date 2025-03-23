@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
@@ -337,6 +336,78 @@ app.get('/api/dashboard', async (req, res) => {
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     res.status(500).json({ error: 'Failed to fetch dashboard data' });
+  }
+});
+
+// Dashboard Sales Report
+app.get('/api/dashboard/sales', async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    
+    let query = `
+      SELECT 
+        ti.product_id,
+        ti.product_name,
+        SUM(ti.quantity) as quantity,
+        ti.price,
+        SUM(ti.subtotal) as revenue
+      FROM transaction_items ti
+      JOIN transactions t ON ti.transaction_id = t.id
+      WHERE t.payment_status = "completed"
+    `;
+    
+    const params = [];
+    
+    if (start && end) {
+      query += ` AND t.date BETWEEN ? AND ?`;
+      params.push(start, end);
+    }
+    
+    query += `
+      GROUP BY ti.product_id, ti.product_name, ti.price
+      ORDER BY revenue DESC
+    `;
+    
+    const [salesData] = await pool.query(query, params);
+    
+    res.json(salesData);
+  } catch (error) {
+    console.error('Error fetching sales report:', error);
+    res.status(500).json({ error: 'Failed to fetch sales report' });
+  }
+});
+
+// Monthly Sales Report
+app.get('/api/dashboard/monthly-sales', async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    
+    if (!year || !month) {
+      return res.status(400).json({ error: 'Year and month are required' });
+    }
+    
+    const startDate = new Date(parseInt(year), parseInt(month), 1);
+    const endDate = new Date(parseInt(year), parseInt(month) + 1, 0);
+    
+    const [salesData] = await pool.query(`
+      SELECT 
+        ti.product_id,
+        ti.product_name,
+        SUM(ti.quantity) as quantity,
+        ti.price,
+        SUM(ti.subtotal) as revenue
+      FROM transaction_items ti
+      JOIN transactions t ON ti.transaction_id = t.id
+      WHERE t.payment_status = "completed"
+        AND t.date BETWEEN ? AND ?
+      GROUP BY ti.product_id, ti.product_name, ti.price
+      ORDER BY revenue DESC
+    `, [startDate.toISOString(), endDate.toISOString()]);
+    
+    res.json(salesData);
+  } catch (error) {
+    console.error('Error fetching monthly sales report:', error);
+    res.status(500).json({ error: 'Failed to fetch monthly sales report' });
   }
 });
 
