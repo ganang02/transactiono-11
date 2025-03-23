@@ -8,7 +8,7 @@ import DailySalesReport from "@/components/reports/DailySalesReport";
 import MonthlySalesReport from "@/components/reports/MonthlySalesReport";
 import { Separator } from "@/components/ui/separator";
 import { useQuery } from "@tanstack/react-query";
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, Settings as SettingsIcon, Printer, Store, BarChart2, BarChart } from "lucide-react";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("store");
@@ -24,17 +24,24 @@ const Settings = () => {
         onValueChange={setActiveTab}
       >
         <TabsList className="mb-6 flex w-full overflow-x-auto bg-transparent p-0 gap-1">
-          <TabsTrigger value="store" className="rounded-lg px-4 py-2">
-            Informasi Toko
+          <TabsTrigger value="store" className="rounded-lg px-4 py-2 flex items-center gap-1">
+            <Store className="h-4 w-4" />
+            <span className="hidden sm:inline">Informasi Toko</span>
+            <span className="inline sm:hidden">Toko</span>
           </TabsTrigger>
-          <TabsTrigger value="printer" className="rounded-lg px-4 py-2">
-            Printer
+          <TabsTrigger value="printer" className="rounded-lg px-4 py-2 flex items-center gap-1">
+            <Printer className="h-4 w-4" />
+            <span>Printer</span>
           </TabsTrigger>
-          <TabsTrigger value="daily-report" className="rounded-lg px-4 py-2">
-            Laporan Harian
+          <TabsTrigger value="daily-report" className="rounded-lg px-4 py-2 flex items-center gap-1">
+            <BarChart className="h-4 w-4" />
+            <span className="hidden sm:inline">Laporan Harian</span>
+            <span className="inline sm:hidden">Harian</span>
           </TabsTrigger>
-          <TabsTrigger value="monthly-report" className="rounded-lg px-4 py-2">
-            Laporan Bulanan
+          <TabsTrigger value="monthly-report" className="rounded-lg px-4 py-2 flex items-center gap-1">
+            <BarChart2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Laporan Bulanan</span>
+            <span className="inline sm:hidden">Bulanan</span>
           </TabsTrigger>
         </TabsList>
         

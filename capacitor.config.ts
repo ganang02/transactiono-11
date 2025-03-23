@@ -8,6 +8,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     cleartext: true, // Allow HTTP connections for development
+    url: "https://7c7f27c7-52ca-4d9b-a091-7e0fd4de654b.lovableproject.com?forceHideBadge=true",
   },
   plugins: {
     CapacitorHttp: {

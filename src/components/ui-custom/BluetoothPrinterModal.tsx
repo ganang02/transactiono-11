@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -47,14 +48,9 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      if (permissionsGranted) {
-        handleScan();
-      } else if (isNative) {
-        checkBluetoothPermissions().then(() => {
-          handleScan();
-        });
-      } else {
-        handleScan();
+      if (isNative) {
+        // For native, just check permissions first, but don't auto-scan
+        checkBluetoothPermissions();
       }
     }
   }, [isOpen, permissionsGranted]);
@@ -169,7 +165,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                     ) : (
                       <>
                         <RefreshCw className="mr-1 h-3 w-3" />
-                        Refresh
+                        {isNative ? "Start Scan" : "Refresh"}
                       </>
                     )}
                   </Button>
@@ -198,9 +194,11 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                             <span>{device.name || 'Unknown Device'}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <BluetoothSignalStrength 
-                              rssi={deviceRSSI[device.id]} 
-                            />
+                            {!isNative && deviceRSSI[device.id] && (
+                              <BluetoothSignalStrength 
+                                rssi={deviceRSSI[device.id]} 
+                              />
+                            )}
                             {isConnecting && selectedDevice?.id === device.id ? (
                               <Spinner className="h-3 w-3 text-primary" />
                             ) : selectedDevice?.id === device.id && (
@@ -228,7 +226,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                   <div className="py-8 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <Bluetooth className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                      <p className="font-medium">Click Scan to find printers</p>
+                      <p className="font-medium">{isNative ? "Click Start Scan to find printers" : "Click Scan to find printers"}</p>
                       <p className="text-sm text-muted-foreground mt-2">
                         Make sure Bluetooth is enabled on your device
                       </p>
@@ -261,7 +259,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                   <p className="text-center text-sm">
                     <span className="inline-block px-2 py-1 rounded bg-primary/10 text-primary">
                       Connected to {selectedDevice.name || 'Unknown Device'}
-                      {deviceRSSI[selectedDevice.id] && (
+                      {!isNative && deviceRSSI[selectedDevice.id] && (
                         <span className="ml-2 text-xs">
                           (Signal: {getSignalQualityText(deviceRSSI[selectedDevice.id])})
                         </span>

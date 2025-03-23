@@ -1,19 +1,32 @@
 
-import React from "react";
+import React, { useState } from "react";
 import GlassCard from "@/components/ui-custom/GlassCard";
 import { Button } from "@/components/ui/button";
 import { useBluetoothPrinter } from "@/hooks/useBluetoothPrinter";
 import { Printer, Bluetooth } from "lucide-react";
-import BluetoothSignalStrength from "@/components/ui-custom/BluetoothSignalStrength";
+import BluetoothPrinterModal from "@/components/ui-custom/BluetoothPrinterModal";
+import { toast } from "@/hooks/use-toast";
+import { Spinner } from "@/components/ui/spinner";
 
 const PrinterSettings = () => {
   const { 
     selectedDevice, 
     isScanning, 
     scanForDevices, 
-    connectToDevice,
-    disconnect
+    disconnectFromDevice,
+    permissionsGranted,
+    checkBluetoothPermissions
   } = useBluetoothPrinter();
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handlePrinterSelected = () => {
+    toast({
+      title: "Printer terhubung",
+      description: selectedDevice ? `Terhubung ke ${selectedDevice.name}` : "",
+    });
+    setIsModalOpen(false);
+  };
 
   return (
     <GlassCard className="p-6">
@@ -30,9 +43,8 @@ const PrinterSettings = () => {
                   <p className="font-medium">{selectedDevice.name}</p>
                   <p className="text-sm text-muted-foreground">{selectedDevice.id}</p>
                 </div>
-                <BluetoothSignalStrength deviceId={selectedDevice.id} className="ml-2" />
               </div>
-              <Button variant="outline" size="sm" onClick={disconnect}>
+              <Button variant="outline" size="sm" onClick={disconnectFromDevice}>
                 Putuskan
               </Button>
             </div>
@@ -41,20 +53,10 @@ const PrinterSettings = () => {
               <p className="text-muted-foreground">Tidak ada printer yang terhubung</p>
               <Button 
                 className="mt-2"
-                onClick={scanForDevices}
-                disabled={isScanning}
+                onClick={() => setIsModalOpen(true)}
               >
-                {isScanning ? (
-                  <>
-                    <span className="animate-pulse mr-2">•••</span>
-                    Memindai...
-                  </>
-                ) : (
-                  <>
-                    <Bluetooth className="h-4 w-4 mr-2" />
-                    Cari printer Bluetooth
-                  </>
-                )}
+                <Bluetooth className="h-4 w-4 mr-2" />
+                Cari printer Bluetooth
               </Button>
             </div>
           )}
@@ -70,6 +72,12 @@ const PrinterSettings = () => {
           </ol>
         </div>
       </div>
+
+      <BluetoothPrinterModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onPrinterSelected={handlePrinterSelected}
+      />
     </GlassCard>
   );
 };
