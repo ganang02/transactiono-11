@@ -203,7 +203,8 @@ export function useBluetoothPrinter() {
           
           // Try to get the name from our devices list
           const systemDevices = await getSystemBluetoothDevices();
-          const matchedDevice = systemDevices.find(d => d.id === deviceId || d.address === deviceId);
+          // Fix: Safely check for address property or use id as fallback
+          const matchedDevice = systemDevices.find(d => d.id === deviceId || (('address' in d) && d.address === deviceId));
           if (matchedDevice) {
             connectedDevice.name = matchedDevice.name;
           }
