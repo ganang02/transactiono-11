@@ -1,8 +1,7 @@
-
 import { toast } from "@/hooks/use-toast";
 
 // Use the environment variable or fallback to localhost
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://apiplastik.gannuniverse.online/api';
 
 // Helper function for API requests
 async function apiRequest(endpoint: string, options: RequestInit = {}) {
