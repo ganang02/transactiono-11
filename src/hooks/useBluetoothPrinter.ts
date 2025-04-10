@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { bluetoothPrinter, BluetoothDevice, ReceiptData } from '@/utils/bluetoothPrinter';
 import { toast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
-import { BluetoothLe, ScanResult, ScanResultInternal } from '@capacitor-community/bluetooth-le';
+import { BluetoothLe, ScanResult } from '@capacitor-community/bluetooth-le';
 
 export function useBluetoothPrinter() {
   const [isScanning, setIsScanning] = useState(false);
@@ -77,6 +77,7 @@ export function useBluetoothPrinter() {
     
     try {
       setIsScanning(true);
+      setDevices([]); // Clear previous devices
       console.log('Starting device scan...');
       
       // Different approach based on platform
@@ -105,10 +106,9 @@ export function useBluetoothPrinter() {
             allowDuplicates: false
           });
           
-          // Set up a listener for scan results - THIS IS THE FIX
-          // Changed event name from "scanResult" to "onScanResult"
-          const listener = await BluetoothLe.addListener('onScanResult', (result: ScanResultInternal) => {
-            console.log('Scan result:', result);
+          // FIX: The correct event name is "scanResult" (not "onScanResult")
+          const listener = await BluetoothLe.addListener('scanResult', (result) => {
+            console.log('Scan result received:', result);
             if (result && result.device) {
               const newDevice: BluetoothDevice = {
                 id: result.device.deviceId,
@@ -194,6 +194,7 @@ export function useBluetoothPrinter() {
         }
       });
       
+      console.log('Final device list:', allDevices);
       setDevices(allDevices);
       return allDevices;
     } catch (error: any) {
