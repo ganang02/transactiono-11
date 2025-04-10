@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { SlideUpTransition } from '@/hooks/useTransition';
 import { useBluetoothPrinter } from '@/hooks/useBluetoothPrinter';
-import { X, Bluetooth, Printer, Check, RefreshCw, Eye, AlertTriangle, Info } from 'lucide-react';
+import { X, Bluetooth, Printer, Check, RefreshCw, Eye, AlertTriangle, Info, FileText } from 'lucide-react';
 import GlassCard from './GlassCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReceiptPreview from './ReceiptPreview';
@@ -39,6 +39,8 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
     isConnecting,
     permissionsGranted,
     checkBluetoothPermissions,
+    printReceipt,
+    isPrinting
   } = useBluetoothPrinter();
   
   const { deviceRSSI } = useBluetoothLE();
@@ -51,8 +53,18 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       if (isNative) {
-        // For native, just check permissions first, but don't auto-scan
-        checkBluetoothPermissions();
+        // For native, check permissions first and then auto-scan if permissions are granted
+        const checkAndScan = async () => {
+          const granted = await checkBluetoothPermissions();
+          if (granted) {
+            handleScan();
+          }
+        };
+        
+        checkAndScan();
+      } else {
+        // For web, just start scan directly since permissions are handled during scan
+        handleScan();
       }
       setScanError(null);
     }
@@ -104,6 +116,53 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
       toast({
         title: "Koneksi Gagal",
         description: "Gagal terhubung ke printer. Coba lagi atau pilih printer lain.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handlePrintTest = async () => {
+    if (!selectedDevice) {
+      toast({
+        title: "Tidak Ada Printer",
+        description: "Silakan pilih printer terlebih dahulu",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      // Sample receipt data for testing
+      const testReceiptData = {
+        storeName: "Toko Test",
+        storeAddress: "Jl. Test No. 123, Jakarta",
+        storeWhatsapp: "08123456789",
+        transactionId: "TEST-001",
+        date: new Date().toLocaleString("id-ID"),
+        items: [
+          { name: "Produk Test 1", quantity: 2, price: 15000, subtotal: 30000 },
+          { name: "Produk Test 2", quantity: 1, price: 25000, subtotal: 25000 }
+        ],
+        subtotal: 55000,
+        tax: 5500,
+        total: 60500,
+        paymentMethod: "Cash",
+        amountPaid: 100000,
+        change: 39500,
+        notes: "Terima kasih telah berbelanja!"
+      };
+      
+      await printReceipt(testReceiptData);
+      
+      toast({
+        title: "Test Print",
+        description: "Struk test berhasil dikirim ke printer",
+      });
+    } catch (error) {
+      console.error("Error printing test receipt:", error);
+      toast({
+        title: "Gagal Mencetak",
+        description: "Terjadi kesalahan saat mencoba mencetak struk test",
         variant: "destructive",
       });
     }
@@ -190,7 +249,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                     ) : (
                       <>
                         <RefreshCw className="mr-1 h-3 w-3" />
-                        {isNative ? "Mulai Pemindaian" : "Segarkan"}
+                        Segarkan
                       </>
                     )}
                   </Button>
@@ -271,7 +330,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                   <div className="py-8 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <Bluetooth className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                      <p className="font-medium">{isNative ? "Klik Mulai Pemindaian untuk mencari printer" : "Klik Segarkan untuk mencari printer"}</p>
+                      <p className="font-medium">Klik Segarkan untuk mencari printer</p>
                       <p className="text-sm text-muted-foreground mt-2">
                         Pastikan Bluetooth diaktifkan di perangkat Anda
                       </p>
@@ -311,13 +370,26 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                       )}
                     </span>
                   </p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     <Button 
                       variant="outline" 
                       onClick={disconnectFromDevice}
                       className="hover:bg-red-50 hover:text-red-600 transition-colors"
                     >
                       Putuskan
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={handlePrintTest}
+                      disabled={isPrinting}
+                      className="hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    >
+                      {isPrinting ? (
+                        <Spinner className="h-3 w-3 mr-2" />
+                      ) : (
+                        <FileText className="h-3 w-3 mr-2" />
+                      )}
+                      Test Print
                     </Button>
                     <Button 
                       onClick={() => {
@@ -328,7 +400,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                       className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
                     >
                       <Printer className="h-4 w-4 mr-2" />
-                      Pilih Printer
+                      Pilih
                     </Button>
                   </div>
                 </>

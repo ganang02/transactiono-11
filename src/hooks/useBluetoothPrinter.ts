@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { bluetoothPrinter, BluetoothDevice, ReceiptData } from '@/utils/bluetoothPrinter';
 import { toast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
-import { BluetoothLe, ScanResult, BleDevice } from '@capacitor-community/bluetooth-le';
+import { BluetoothLe, BleDevice } from '@capacitor-community/bluetooth-le';
 
 export function useBluetoothPrinter() {
   const [isScanning, setIsScanning] = useState(false);
@@ -49,21 +49,61 @@ export function useBluetoothPrinter() {
         androidNeverForLocation: false,
       });
       
+      // Check if Bluetooth is enabled
+      const bleEnabled = await BluetoothLe.isEnabled();
+      if (!bleEnabled.value) {
+        try {
+          // Try to enable Bluetooth
+          await BluetoothLe.openBluetoothSettings();
+          toast({
+            title: "Bluetooth Tidak Aktif",
+            description: "Mohon aktifkan Bluetooth di pengaturan perangkat",
+            variant: "destructive",
+          });
+          return false;
+        } catch (error) {
+          console.error('Error opening Bluetooth settings:', error);
+          return false;
+        }
+      }
+      
       // Request scan permission which will prompt for necessary permissions
-      const result = await BluetoothLe.requestLEScan({
-        services: [],
-        scanMode: 1, // Low latency scan mode
-        allowDuplicates: false,
-      });
-      
-      // If we got here without errors, permissions are granted
-      setPermissionsGranted(true);
-      console.log('Bluetooth permissions are granted');
-      
-      // Make sure to stop the scan we just started
-      await BluetoothLe.stopLEScan();
-      
-      return true;
+      try {
+        const result = await BluetoothLe.requestLEScan({
+          services: [],
+          scanMode: 1, // Low latency scan mode
+          allowDuplicates: false,
+        });
+        
+        // If we got here without errors, permissions are granted
+        setPermissionsGranted(true);
+        console.log('Bluetooth permissions are granted');
+        
+        // Make sure to stop the scan we just started
+        await BluetoothLe.stopLEScan();
+        
+        return true;
+      } catch (error) {
+        // This is likely a permission error
+        console.error('Error requesting BLE scan:', error);
+        setPermissionsGranted(false);
+        
+        // Try to open location settings if we're on Android
+        if (Capacitor.getPlatform() === 'android') {
+          try {
+            await BluetoothLe.openLocationSettings();
+            toast({
+              title: "Lokasi Diperlukan",
+              description: "Mohon aktifkan Lokasi untuk menggunakan Bluetooth di Android",
+              variant: "destructive",
+            });
+          } catch (e) {
+            console.error('Error opening location settings:', e);
+          }
+        }
+        
+        return false;
+      }
     } catch (error) {
       console.error('Error checking bluetooth permissions:', error);
       setPermissionsGranted(false);
