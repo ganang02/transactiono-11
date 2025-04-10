@@ -107,12 +107,12 @@ export function useBluetoothPrinter() {
           });
           
           // FIX: The correct event name is "scanResult" (not "onScanResult")
-          const listener = await BluetoothLe.addListener('scanResult', (result) => {
+          const listener = await BluetoothLe.addListener('scanResult', (result: ScanResult) => {
             console.log('Scan result received:', result);
-            if (result && result.device) {
+            if (result && result.advertisementData?.deviceName) {
               const newDevice: BluetoothDevice = {
                 id: result.device.deviceId,
-                name: result.device.name || 'Unknown Device'
+                name: result.advertisementData.deviceName || 'Unknown Device'
               };
               
               // Update devices state (avoiding duplicates)

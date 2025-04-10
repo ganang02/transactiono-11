@@ -68,7 +68,7 @@ const PrinterSettings = () => {
       <h2 className="text-xl font-semibold mb-6">Pengaturan Printer</h2>
       
       {!permissionsGranted && (
-        <Alert variant="warning" className="mb-6">
+        <Alert variant="destructive" className="mb-6">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Izin Bluetooth diperlukan</AlertTitle>
           <AlertDescription>

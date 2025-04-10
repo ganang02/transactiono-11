@@ -140,7 +140,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
           
           <div className="p-6">
             {isNative && !permissionsGranted && (
-              <Alert variant="warning" className="mb-4">
+              <Alert variant="destructive" className="mb-4">
                 <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
                 <AlertTitle>Izin Bluetooth diperlukan</AlertTitle>
                 <AlertDescription>
@@ -243,7 +243,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                       <p className="font-medium">Tidak ada printer ditemukan</p>
                       
                       {scanError && (
-                        <Alert variant="warning" className="mt-4 text-left">
+                        <Alert variant="destructive" className="mt-4 text-left">
                           <AlertTriangle className="h-4 w-4" />
                           <AlertTitle>Pemindaian Gagal</AlertTitle>
                           <AlertDescription className="text-xs">
