@@ -111,6 +111,152 @@ export function useBluetoothPrinter() {
     }
   };
 
+  // NEW: Get System Bluetooth devices (directly from system settings)
+  const getSystemBluetoothDevices = useCallback(async () => {
+    console.log("Getting system Bluetooth devices");
+    if (Capacitor.isNativePlatform()) {
+      try {
+        if (!permissionsGranted) {
+          const granted = await checkBluetoothPermissions();
+          if (!granted) {
+            throw new Error("Bluetooth permissions not granted");
+          }
+        }
+        
+        // Try to get paired devices if available
+        try {
+          const result = await BluetoothLe.getConnectedDevices({ services: [] });
+          console.log("Connected devices from system:", result);
+          
+          if (result && result.devices) {
+            return result.devices.map(device => ({
+              id: device.deviceId,
+              name: device.name || 'Unknown Device',
+              address: device.deviceId
+            }));
+          }
+          return [];
+        } catch (err) {
+          console.error('Error getting connected devices:', err);
+          
+          // On Android, try alternative method
+          if (Capacitor.getPlatform() === 'android') {
+            try {
+              // Attempt to open Bluetooth settings to let user pair
+              await BluetoothLe.openBluetoothSettings();
+              toast({
+                title: "Pairing Diperlukan",
+                description: "Harap pasangkan printer di pengaturan Bluetooth",
+              });
+            } catch (e) {
+              console.error("Could not open Bluetooth settings:", e);
+            }
+          }
+          
+          return [];
+        }
+      } catch (error) {
+        console.error("Error getting system Bluetooth devices:", error);
+        throw error;
+      }
+    } else {
+      // For web, use the Web Bluetooth API
+      try {
+        if ('bluetooth' in navigator && 'getDevices' in navigator.bluetooth) {
+          const devices = await navigator.bluetooth.getDevices();
+          console.log("Web Bluetooth paired devices:", devices);
+          return devices.map(device => ({
+            id: device.id,
+            name: device.name || 'Unknown Device',
+            device
+          }));
+        } else {
+          console.log("getDevices not supported in this browser");
+          return [];
+        }
+      } catch (error) {
+        console.error("Error getting web Bluetooth devices:", error);
+        return [];
+      }
+    }
+  }, [permissionsGranted]);
+
+  // NEW: Connect to a system paired device by ID
+  const connectToSystemDevice = useCallback(async (deviceId: string) => {
+    console.log("Connecting to system device:", deviceId);
+    setIsConnecting(true);
+    
+    try {
+      if (Capacitor.isNativePlatform()) {
+        // For native platforms
+        try {
+          await BluetoothLe.connect({
+            deviceId,
+            timeout: 10000
+          });
+          
+          // Create a device object
+          const connectedDevice = {
+            id: deviceId,
+            name: "System Printer" // We might not have the name
+          };
+          
+          // Try to get the name from our devices list
+          const systemDevices = await getSystemBluetoothDevices();
+          const matchedDevice = systemDevices.find(d => d.id === deviceId || d.address === deviceId);
+          if (matchedDevice) {
+            connectedDevice.name = matchedDevice.name;
+          }
+          
+          // Save device
+          localStorage.setItem('bluetooth-printer', JSON.stringify(connectedDevice));
+          setSelectedDevice(connectedDevice);
+          
+          return connectedDevice;
+        } catch (error) {
+          console.error("Error connecting to system device:", error);
+          throw error;
+        }
+      } else {
+        // For web browsers
+        try {
+          // Try to find device in paired devices
+          let targetDevice;
+          if ('bluetooth' in navigator && 'getDevices' in navigator.bluetooth) {
+            const pairedDevices = await navigator.bluetooth.getDevices();
+            targetDevice = pairedDevices.find(d => d.id === deviceId);
+          }
+          
+          if (!targetDevice) {
+            // If not found, we need to connect using our utility
+            return await connectToDevice(deviceId);
+          }
+          
+          // Use the utility to connect to this device
+          const result = await bluetoothPrinter.connectToSystemDevice(targetDevice);
+          
+          const connectedDevice = {
+            id: targetDevice.id,
+            name: targetDevice.name || "Web Printer"
+          };
+          
+          // Save device
+          localStorage.setItem('bluetooth-printer', JSON.stringify(connectedDevice));
+          setSelectedDevice(connectedDevice);
+          
+          return connectedDevice;
+        } catch (error) {
+          console.error("Error connecting to web system device:", error);
+          throw error;
+        }
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsConnecting(false);
+    }
+  }, []);
+
   const scanForDevices = useCallback(async () => {
     let nativeDevices: BluetoothDevice[] = [];
     let webDevices: BluetoothDevice[] = [];
@@ -139,7 +285,13 @@ export function useBluetoothPrinter() {
         try {
           console.log('Starting native BLE scan');
           
-          // Start scan
+          // First, try to get any existing paired devices
+          const systemDevices = await getSystemBluetoothDevices();
+          if (systemDevices.length > 0) {
+            nativeDevices = systemDevices;
+          }
+          
+          // Start scan for new devices
           await BluetoothLe.requestLEScan({
             services: [],
             scanMode: 1, // Low latency
@@ -163,6 +315,11 @@ export function useBluetoothPrinter() {
                 }
                 return currentDevices;
               });
+              
+              // Also update nativeDevices for final return
+              if (!nativeDevices.some(d => d.id === newDevice.id)) {
+                nativeDevices.push(newDevice);
+              }
             }
           });
           
@@ -176,26 +333,6 @@ export function useBluetoothPrinter() {
           console.log('Native scan completed');
         } catch (error) {
           console.error('Error during native BLE scan:', error);
-        }
-        
-        // Also try to get paired devices if available
-        try {
-          console.log('Getting connected devices');
-          const result = await BluetoothLe.getConnectedDevices({ services: [] });
-          
-          if (result && result.devices) {
-            const connectedDevices = result.devices.map(device => ({
-              id: device.deviceId,
-              name: device.name || 'Unknown Device',
-            }));
-            
-            console.log('Connected devices:', connectedDevices);
-            
-            // Add to devices without duplicates
-            nativeDevices = connectedDevices;
-          }
-        } catch (err) {
-          console.log('Error getting connected devices:', err);
         }
       } else {
         // For web, use the Web Bluetooth API via our wrapper
@@ -402,5 +539,7 @@ export function useBluetoothPrinter() {
     disconnectFromDevice,
     printReceipt,
     checkBluetoothPermissions,
+    getSystemBluetoothDevices,
+    connectToSystemDevice
   };
 }

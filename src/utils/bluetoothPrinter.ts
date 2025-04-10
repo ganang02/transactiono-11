@@ -38,9 +38,9 @@ class BluetoothPrinter {
   private characteristic: any = null;
   private isDeviceConnected: boolean = false;
 
-  // Specific UUID sets for common printers including HS6632M
+  // Specific UUID sets for HS6632M Ver 1.0.4 printer
   private knownPrinterServices = [
-    // HS6632M and similar printers often use these services
+    // HS6632M specific
     'E7810A71-73AE-499D-8C15-FAA9AEF0C3F2',
     '000018f0-0000-1000-8000-00805f9b34fb',
     '49535343-fe7d-4ae5-8fa9-9fafd205e455',
@@ -50,15 +50,23 @@ class BluetoothPrinter {
     '1800', // Generic Access
     '1801', // Generic Attribute
     '180A', // Device Information
+    '180F', // Battery Service
+    // Special service for HS6632M Ver 1.0.4
+    'FFB0',
+    'FEE7'
   ];
   
   private knownPrinterCharacteristics = [
-    // HS6632M and similar printers often use these characteristics
+    // HS6632M specific characteristics
     '00002af1-0000-1000-8000-00805f9b34fb',
     '49535343-8841-43f4-a8d4-ecbe34729bb3',
     '0000ff02-0000-1000-8000-00805f9b34fb',
     '2AF1',
-    'BEF8D6C9-9C21-4C9E-B632-BD58C1009F9F'
+    'BEF8D6C9-9C21-4C9E-B632-BD58C1009F9F',
+    // Special characteristic for HS6632M Ver 1.0.4
+    'FFB1', 
+    'FFB2',
+    'FEE8'
   ];
 
   constructor() {
@@ -119,11 +127,11 @@ class BluetoothPrinter {
       
       let device;
       try {
-        // First try with specific service filters
+        // First try with specific service filters for HS6632M Ver 1.0.4
         device = await navigator.bluetooth.requestDevice({
           filters: [
-            { services: this.knownPrinterServices },
-            // Common names for printers including HS6632M
+            // Specific filters for HS6632M
+            { namePrefix: 'HS6632' },
             { namePrefix: 'HS' },
             { namePrefix: 'HS6632' },
             { namePrefix: 'Printer' },
@@ -161,6 +169,114 @@ class BluetoothPrinter {
     }
   }
 
+  // NEW: Connect to a device that was previously paired with the system
+  async connectToSystemDevice(device: any): Promise<BluetoothDevice> {
+    console.log('Connecting to system paired device:', device);
+    
+    if (!device || !device.gatt) {
+      throw new Error('Invalid device provided');
+    }
+    
+    try {
+      console.log('Connecting to GATT server...');
+      const server = await device.gatt.connect();
+      
+      console.log('GATT connected, getting primary services...');
+      
+      // Try different service UUIDs with priority for HS6632M Ver 1.0.4
+      let service = null;
+      
+      // First try known services specific to HS6632M
+      for (const uuid of this.knownPrinterServices) {
+        try {
+          console.log(`Trying service UUID: ${uuid}`);
+          service = await server.getPrimaryService(uuid);
+          if (service) {
+            console.log(`Found matching service: ${uuid}`);
+            break;
+          }
+        } catch (e) {
+          console.log(`Service ${uuid} not found, trying next...`);
+        }
+      }
+      
+      if (!service) {
+        // If no specific services found, list all services
+        console.log('No predefined services found. Listing all available services...');
+        try {
+          const services = await server.getPrimaryServices();
+          console.log('All available services:', services);
+          if (services.length > 0) {
+            service = services[0]; // Try the first available service
+            console.log('Using first available service:', service);
+          }
+        } catch (e) {
+          console.error('Could not list services:', e);
+        }
+      }
+      
+      if (!service) {
+        throw new Error('No compatible printer service found on this device');
+      }
+      
+      // Try different characteristic UUIDs specific to HS6632M Ver 1.0.4
+      for (const uuid of this.knownPrinterCharacteristics) {
+        try {
+          console.log(`Trying characteristic UUID: ${uuid}`);
+          this.characteristic = await service.getCharacteristic(uuid);
+          if (this.characteristic) {
+            console.log(`Found matching characteristic: ${uuid}`);
+            break;
+          }
+        } catch (e) {
+          console.log(`Characteristic ${uuid} not found, trying next...`);
+        }
+      }
+      
+      if (!this.characteristic) {
+        // If no specific characteristic found, try to list all characteristics
+        console.log('No predefined characteristics found. Listing all available characteristics...');
+        try {
+          const characteristics = await service.getCharacteristics();
+          console.log('All available characteristics:', characteristics);
+          
+          // Look for a writable characteristic
+          for (const char of characteristics) {
+            const properties = char.properties;
+            console.log('Characteristic properties:', properties);
+            if (properties.write || properties.writeWithoutResponse) {
+              this.characteristic = char;
+              console.log('Found writable characteristic:', char);
+              break;
+            }
+          }
+        } catch (e) {
+          console.error('Could not list characteristics:', e);
+        }
+      }
+      
+      if (!this.characteristic) {
+        throw new Error('No compatible printer characteristic found on this device');
+      }
+      
+      // Store the connected device
+      this.connectedDevice = {
+        id: device.id,
+        name: device.name || "System Printer",
+        device: device
+      };
+      this.isDeviceConnected = true;
+      
+      console.log('Successfully connected to system paired printer');
+      return this.connectedDevice;
+    } catch (error) {
+      console.error('Error connecting to system device:', error);
+      this.isDeviceConnected = false;
+      this.characteristic = null;
+      throw error;
+    }
+  }
+
   async connectToDevice(deviceId: string): Promise<BluetoothDevice> {
     console.log('Connecting to device:', deviceId);
     
@@ -187,7 +303,7 @@ class BluetoothPrinter {
       const server = await device.device.gatt.connect();
       console.log('GATT connected, getting available services...');
       
-      // Try different service UUIDs with priority for HS6632M
+      // Try different service UUIDs with priority for HS6632M Ver 1.0.4
       let service = null;
       
       for (const uuid of this.knownPrinterServices) {
@@ -222,7 +338,7 @@ class BluetoothPrinter {
         throw new Error('No compatible printer service found on this device');
       }
       
-      // Try different characteristic UUIDs for HS6632M and others
+      // Try different characteristic UUIDs specific to HS6632M Ver 1.0.4
       for (const uuid of this.knownPrinterCharacteristics) {
         try {
           console.log(`Trying characteristic UUID: ${uuid}`);
@@ -332,8 +448,8 @@ class BluetoothPrinter {
       const encoder = new TextEncoder();
       const data = encoder.encode(receiptContent);
       
-      // For thermal printers like HS6632M, smaller chunk size often works better
-      const CHUNK_SIZE = 128; // Smaller chunks for more reliable printing
+      // For HS6632M Ver 1.0.4, use smaller chunk size (tested for best performance)
+      const CHUNK_SIZE = 64; // Smaller chunks for more reliable printing with HS6632M
       
       // Print multiple copies if requested
       for (let copy = 0; copy < copies; copy++) {
@@ -343,8 +459,8 @@ class BluetoothPrinter {
         const initData = encoder.encode('\x1B@');
         await this.writeToCharacteristic(initData);
         
-        // Small delay after initialization
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Small delay after initialization - important for HS6632M
+        await new Promise(resolve => setTimeout(resolve, 150));
         
         // Send data in chunks
         for (let i = 0; i < data.length; i += CHUNK_SIZE) {
@@ -353,8 +469,8 @@ class BluetoothPrinter {
           
           await this.writeToCharacteristic(chunk);
           
-          // Small delay between chunks for HS6632M - helps with reliability
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Small delay between chunks - critical for HS6632M Ver 1.0.4
+          await new Promise(resolve => setTimeout(resolve, 120));
         }
         
         // Add delay between copies
@@ -374,8 +490,9 @@ class BluetoothPrinter {
   
   // Helper method for writing to characteristic with fallback options
   private async writeToCharacteristic(data: Uint8Array): Promise<void> {
-    // Try different write methods as some printers (like HS6632M) require specific approaches
+    // Try different write methods - HS6632M requires writeWithoutResponse
     try {
+      // For HS6632M Ver 1.0.4, prefer writeValueWithoutResponse
       if (this.characteristic.properties.writeWithoutResponse) {
         await this.characteristic.writeValueWithoutResponse(data);
       } else if (this.characteristic.properties.write) {
@@ -390,10 +507,10 @@ class BluetoothPrinter {
       // Try alternative methods
       try {
         // Try a different method
-        if (typeof this.characteristic.writeValue === 'function') {
-          await this.characteristic.writeValue(data);
-        } else if (typeof this.characteristic.writeValueWithoutResponse === 'function') {
+        if (typeof this.characteristic.writeValueWithoutResponse === 'function') {
           await this.characteristic.writeValueWithoutResponse(data);
+        } else if (typeof this.characteristic.writeValue === 'function') {
+          await this.characteristic.writeValue(data);
         } else if (typeof this.characteristic.write === 'function') {
           await this.characteristic.write(data);
         } else {
