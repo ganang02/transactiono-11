@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import GlassCard from "@/components/ui-custom/GlassCard";
 import { Button } from "@/components/ui/button";
 import { useBluetoothPrinter } from "@/hooks/useBluetoothPrinter";
-import { Printer, Bluetooth, AlertTriangle, Info, FileText } from "lucide-react";
+import { Printer, Bluetooth, AlertTriangle, Info, FileText, Send, RefreshCw } from "lucide-react";
 import BluetoothPrinterModal from "@/components/ui-custom/BluetoothPrinterModal";
 import { toast } from "@/hooks/use-toast";
 import { Spinner } from "@/components/ui/spinner";
@@ -21,7 +21,8 @@ const PrinterSettings = () => {
     devices,
     printReceipt,
     isPrinting,
-    isConnecting
+    isConnecting,
+    connectToDevice
   } = useBluetoothPrinter();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -32,6 +33,13 @@ const PrinterSettings = () => {
     // Debug info for troubleshooting
     setDebugInfo(`Platform: ${isNative ? 'Native' : 'Web'}, Permissions: ${permissionsGranted ? 'Granted' : 'Not granted'}`);
   }, [isNative, permissionsGranted]);
+
+  // Auto-check permissions on load
+  useEffect(() => {
+    if (isNative && !permissionsGranted) {
+      checkBluetoothPermissions();
+    }
+  }, []);
 
   const handlePrinterSelected = () => {
     toast({
@@ -105,6 +113,76 @@ const PrinterSettings = () => {
       toast({
         title: "Gagal Mencetak",
         description: "Terjadi kesalahan saat mencoba mencetak struk test",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // New simplified function that combines scan and connect
+  const handleQuickConnect = async () => {
+    try {
+      // 1. Check permissions first
+      if (isNative && !permissionsGranted) {
+        const granted = await checkBluetoothPermissions();
+        if (!granted) {
+          toast({
+            title: "Izin Diperlukan",
+            description: "Mohon berikan izin Bluetooth untuk melanjutkan",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      
+      // 2. Show scanning toast
+      toast({
+        title: "Mencari Printer",
+        description: "Sedang mencari printer HS6632M dan printer lainnya...",
+      });
+      
+      // 3. Scan for devices
+      const foundDevices = await scanForDevices();
+      
+      // 4. If no devices found, show error
+      if (foundDevices.length === 0) {
+        toast({
+          title: "Tidak Ditemukan",
+          description: "Tidak ada printer ditemukan. Pastikan printer menyala dan dalam mode pairing.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // 5. Try to find HS6632M specifically
+      let targetDevice = foundDevices.find(d => d.name?.includes('HS6632M') || d.name?.includes('HS'));
+      
+      // 6. If not found, use the first device
+      if (!targetDevice) {
+        targetDevice = foundDevices[0];
+      }
+      
+      // 7. Connect to the device
+      toast({
+        title: "Menghubungkan",
+        description: `Menghubungkan ke ${targetDevice.name || 'printer'}...`,
+      });
+      
+      await connectToDevice(targetDevice.id);
+      
+      // 8. Success toast
+      toast({
+        title: "Terhubung!",
+        description: `Berhasil terhubung ke ${targetDevice.name || 'printer'}`,
+      });
+      
+      // 9. Auto print test page
+      handlePrintTest();
+      
+    } catch (error) {
+      console.error("Error in quick connect:", error);
+      toast({
+        title: "Gagal Terhubung",
+        description: "Gagal menghubungkan ke printer. Coba lagi atau buka menu printer lengkap.",
         variant: "destructive",
       });
     }
@@ -210,6 +288,20 @@ const PrinterSettings = () => {
             <div className="flex flex-col gap-2">
               <p className="text-muted-foreground">Tidak ada printer yang terhubung</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                {/* New one-click connect and print button */}
+                <Button 
+                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 col-span-1 sm:col-span-2"
+                  onClick={handleQuickConnect}
+                  disabled={isScanning || isConnecting}
+                >
+                  {isScanning || isConnecting ? (
+                    <Spinner className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  Connect & Print HS6632M
+                </Button>
+                
                 <Button 
                   className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
                   onClick={handleDirectScan}
@@ -220,13 +312,13 @@ const PrinterSettings = () => {
                   ) : (
                     <Bluetooth className="h-4 w-4 mr-2" />
                   )}
-                  Cari & Hubungkan Printer
+                  Cari & Hubungkan
                 </Button>
                 <Button 
                   variant="outline"
                   onClick={() => setIsModalOpen(true)}
                 >
-                  Pengaturan Printer Lengkap
+                  Pengaturan Printer
                 </Button>
               </div>
             </div>
@@ -236,14 +328,14 @@ const PrinterSettings = () => {
         <div className="bg-muted/30 p-4 rounded-lg border">
           <h3 className="font-medium mb-2 flex items-center gap-2">
             <Info className="h-4 w-4 text-blue-500" />
-            Panduan Penggunaan
+            Panduan HS6632M
           </h3>
           <ol className="list-decimal pl-5 space-y-2 text-sm">
-            <li>Pastikan printer Bluetooth Anda sudah menyala dan ada di sekitar perangkat</li>
-            <li>Klik tombol "Cari & Hubungkan Printer" untuk memindai perangkat di sekitar</li>
-            <li>Pilih printer dari daftar yang muncul</li>
-            <li>Setelah terhubung, Anda dapat mencetak struk dari halaman transaksi</li>
-            <li>Gunakan tombol "Test Print" untuk menguji koneksi printer</li>
+            <li>Nyalakan printer thermal HS6632M dan tunggu lampu indikator menyala</li>
+            <li>Pastikan printer dalam mode pairing (tombol biru atau lampu berkedip)</li>
+            <li>Klik tombol <b>"Connect & Print HS6632M"</b> untuk sekali klik terhubung dan mencoba print</li>
+            <li>Jika gagal, gunakan <b>"Cari & Hubungkan"</b> dan pilih printer secara manual</li>
+            <li>Untuk printer non-HS6632M, gunakan menu pengaturan printer lengkap</li>
           </ol>
         </div>
         

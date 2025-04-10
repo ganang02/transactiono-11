@@ -38,6 +38,29 @@ class BluetoothPrinter {
   private characteristic: any = null;
   private isDeviceConnected: boolean = false;
 
+  // Specific UUID sets for common printers including HS6632M
+  private knownPrinterServices = [
+    // HS6632M and similar printers often use these services
+    'E7810A71-73AE-499D-8C15-FAA9AEF0C3F2',
+    '000018f0-0000-1000-8000-00805f9b34fb',
+    '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+    '0000ff00-0000-1000-8000-00805f9b34fb',
+    '18F0',
+    // Generic GATT services
+    '1800', // Generic Access
+    '1801', // Generic Attribute
+    '180A', // Device Information
+  ];
+  
+  private knownPrinterCharacteristics = [
+    // HS6632M and similar printers often use these characteristics
+    '00002af1-0000-1000-8000-00805f9b34fb',
+    '49535343-8841-43f4-a8d4-ecbe34729bb3',
+    '0000ff02-0000-1000-8000-00805f9b34fb',
+    '2AF1',
+    'BEF8D6C9-9C21-4C9E-B632-BD58C1009F9F'
+  ];
+
   constructor() {
     // Try to restore saved device on initialization
     const savedDevice = localStorage.getItem('bluetooth-printer');
@@ -74,6 +97,7 @@ class BluetoothPrinter {
     
     try {
       const devices = await navigator.bluetooth.getDevices();
+      console.log('Found paired devices:', devices);
       return devices.map(device => ({
         id: device.id || Math.random().toString(36).substring(2, 9),
         name: device.name || 'Unknown Printer',
@@ -91,44 +115,30 @@ class BluetoothPrinter {
     }
     
     try {
-      console.log('Starting Bluetooth scan...');
-      
-      // Services that might be used by thermal printers
-      const services = [
-        '000018f0-0000-1000-8000-00805f9b34fb',
-        '49535343-fe7d-4ae5-8fa9-9fafd205e455',
-        '0000ff00-0000-1000-8000-00805f9b34fb',
-        '000018f0-0000-1000-8000-00805f9b34fb',
-        '18F0',
-        'E7810A71-73AE-499D-8C15-FAA9AEF0C3F2',
-        // Generic GATT services that might help
-        '1800', // Generic Access
-        '1801', // Generic Attribute
-        '180A', // Device Information
-        // Add as many UUIDs as needed
-      ];
+      console.log('Starting Bluetooth scan for HS6632M and other printers...');
       
       let device;
       try {
         // First try with specific service filters
         device = await navigator.bluetooth.requestDevice({
           filters: [
-            { services: services },
-            // Common names for printers
+            { services: this.knownPrinterServices },
+            // Common names for printers including HS6632M
+            { namePrefix: 'HS' },
+            { namePrefix: 'HS6632' },
             { namePrefix: 'Printer' },
             { namePrefix: 'POS' },
             { namePrefix: 'ESC' },
             { namePrefix: 'BT' },
-            // Add more common printer name prefixes
           ],
-          optionalServices: services
+          optionalServices: this.knownPrinterServices
         });
       } catch (err) {
         console.log('Failed with service filters, trying acceptAllDevices:', err);
         // If that fails, try accepting all devices
         device = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
-          optionalServices: services
+          optionalServices: this.knownPrinterServices
         });
       }
       
@@ -173,26 +183,14 @@ class BluetoothPrinter {
     }
     
     try {
-      console.log('Attempting GATT connection...');
+      console.log('Attempting GATT connection to HS6632M or similar printer...');
       const server = await device.device.gatt.connect();
       console.log('GATT connected, getting available services...');
       
-      // Try different service UUIDs commonly used by thermal printers
-      const serviceUUIDs = [
-        '000018f0-0000-1000-8000-00805f9b34fb',
-        '49535343-fe7d-4ae5-8fa9-9fafd205e455',
-        '0000ff00-0000-1000-8000-00805f9b34fb',
-        '000018f0-0000-1000-8000-00805f9b34fb',
-        '18F0',
-        'E7810A71-73AE-499D-8C15-FAA9AEF0C3F2',
-        // Try generic services too
-        '1800', // Generic Access
-        '1801', // Generic Attribute
-        '180A', // Device Information
-      ];
-      
+      // Try different service UUIDs with priority for HS6632M
       let service = null;
-      for (const uuid of serviceUUIDs) {
+      
+      for (const uuid of this.knownPrinterServices) {
         try {
           console.log(`Trying service UUID: ${uuid}`);
           service = await server.getPrimaryService(uuid);
@@ -224,17 +222,8 @@ class BluetoothPrinter {
         throw new Error('No compatible printer service found on this device');
       }
       
-      // Try different characteristic UUIDs for writing data
-      const characteristicUUIDs = [
-        '00002af1-0000-1000-8000-00805f9b34fb',
-        '49535343-8841-43f4-a8d4-ecbe34729bb3',
-        '0000ff02-0000-1000-8000-00805f9b34fb',
-        '00002af1-0000-1000-8000-00805f9b34fb',
-        '2AF1',
-        'BEF8D6C9-9C21-4C9E-B632-BD58C1009F9F'
-      ];
-      
-      for (const uuid of characteristicUUIDs) {
+      // Try different characteristic UUIDs for HS6632M and others
+      for (const uuid of this.knownPrinterCharacteristics) {
         try {
           console.log(`Trying characteristic UUID: ${uuid}`);
           this.characteristic = await service.getCharacteristic(uuid);
@@ -336,58 +325,36 @@ class BluetoothPrinter {
         await this.connectToDevice(this.connectedDevice.id);
       }
       
-      // Format the receipt
+      // Format the receipt - optimize for HS6632M
       const receiptContent = this.formatReceiptContent(receiptData);
       
       // Convert text to bytes using ESC/POS commands
       const encoder = new TextEncoder();
       const data = encoder.encode(receiptContent);
       
-      // For large data, we need to split into chunks
-      const CHUNK_SIZE = 256; // Some devices have a smaller MTU, so use a smaller chunk size
+      // For thermal printers like HS6632M, smaller chunk size often works better
+      const CHUNK_SIZE = 128; // Smaller chunks for more reliable printing
       
       // Print multiple copies if requested
       for (let copy = 0; copy < copies; copy++) {
         console.log(`Printing copy ${copy + 1} of ${copies}`);
+        
+        // Send initialization sequence first
+        const initData = encoder.encode('\x1B@');
+        await this.writeToCharacteristic(initData);
+        
+        // Small delay after initialization
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         // Send data in chunks
         for (let i = 0; i < data.length; i += CHUNK_SIZE) {
           const chunk = data.slice(i, i + CHUNK_SIZE);
           console.log(`Sending chunk ${i / CHUNK_SIZE + 1}, size: ${chunk.length} bytes`);
           
-          // Try different write methods as some printers require specific approaches
-          try {
-            if (this.characteristic.properties.writeWithoutResponse) {
-              await this.characteristic.writeValueWithoutResponse(chunk);
-            } else if (this.characteristic.properties.write) {
-              await this.characteristic.writeValue(chunk);
-            } else {
-              // Fallback to generic write method
-              await this.characteristic.write(chunk);
-            }
-          } catch (e) {
-            console.error('Error writing to characteristic:', e);
-            
-            // Try alternative methods
-            try {
-              // Try a different method
-              if (typeof this.characteristic.writeValue === 'function') {
-                await this.characteristic.writeValue(chunk);
-              } else if (typeof this.characteristic.writeValueWithoutResponse === 'function') {
-                await this.characteristic.writeValueWithoutResponse(chunk);
-              } else if (typeof this.characteristic.write === 'function') {
-                await this.characteristic.write(chunk);
-              } else {
-                throw new Error('No working write method found');
-              }
-            } catch (e2) {
-              console.error('All write methods failed:', e2);
-              throw new Error('Failed to send data to printer. Try reconnecting.');
-            }
-          }
+          await this.writeToCharacteristic(chunk);
           
-          // Small delay between chunks to avoid overflow
-          await new Promise(resolve => setTimeout(resolve, 150));
+          // Small delay between chunks for HS6632M - helps with reliability
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
         
         // Add delay between copies
@@ -404,9 +371,44 @@ class BluetoothPrinter {
       throw error;
     }
   }
+  
+  // Helper method for writing to characteristic with fallback options
+  private async writeToCharacteristic(data: Uint8Array): Promise<void> {
+    // Try different write methods as some printers (like HS6632M) require specific approaches
+    try {
+      if (this.characteristic.properties.writeWithoutResponse) {
+        await this.characteristic.writeValueWithoutResponse(data);
+      } else if (this.characteristic.properties.write) {
+        await this.characteristic.writeValue(data);
+      } else {
+        // Fallback to generic write method
+        await this.characteristic.write(data);
+      }
+    } catch (e) {
+      console.error('Error writing to characteristic:', e);
+      
+      // Try alternative methods
+      try {
+        // Try a different method
+        if (typeof this.characteristic.writeValue === 'function') {
+          await this.characteristic.writeValue(data);
+        } else if (typeof this.characteristic.writeValueWithoutResponse === 'function') {
+          await this.characteristic.writeValueWithoutResponse(data);
+        } else if (typeof this.characteristic.write === 'function') {
+          await this.characteristic.write(data);
+        } else {
+          throw new Error('No working write method found');
+        }
+      } catch (e2) {
+        console.error('All write methods failed:', e2);
+        throw new Error('Failed to send data to printer. Try reconnecting.');
+      }
+    }
+  }
 
+  // Optimize receipt formatting for HS6632M Ver 1.0.4
   private formatReceiptContent(data: ReceiptData): string {
-    // Create a nicely formatted receipt with ESC/POS commands
+    // Create a nicely formatted receipt with ESC/POS commands optimized for HS6632M
     let receipt = '';
     
     // Initialize printer
