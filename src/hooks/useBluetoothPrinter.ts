@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { bluetoothPrinter, BluetoothDevice, ReceiptData } from '@/utils/bluetoothPrinter';
 import { toast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
-import { BluetoothLe, ScanResult } from '@capacitor-community/bluetooth-le';
+import { BluetoothLe, ScanResult, BleDevice } from '@capacitor-community/bluetooth-le';
 
 export function useBluetoothPrinter() {
   const [isScanning, setIsScanning] = useState(false);
@@ -106,13 +106,14 @@ export function useBluetoothPrinter() {
             allowDuplicates: false
           });
           
-          // FIX: The correct event name is "scanResult" (not "onScanResult")
-          const listener = await BluetoothLe.addListener('scanResult', (result: ScanResult) => {
+          // Fix: Using "onScanResult" as the correct event name instead of "scanResult"
+          const listener = await BluetoothLe.addListener('onScanResult', (result: any) => {
             console.log('Scan result received:', result);
-            if (result && result.advertisementData?.deviceName) {
+            // We need to check what properties are actually available in the result
+            if (result && result.device && result.device.deviceId) {
               const newDevice: BluetoothDevice = {
                 id: result.device.deviceId,
-                name: result.advertisementData.deviceName || 'Unknown Device'
+                name: result.device.name || 'Unknown Device'
               };
               
               // Update devices state (avoiding duplicates)
