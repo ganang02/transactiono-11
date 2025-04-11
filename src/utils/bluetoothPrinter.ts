@@ -1,4 +1,3 @@
-
 // Type definitions for Bluetooth printer functionality
 export interface BluetoothDevice {
   id: string;
@@ -58,7 +57,10 @@ class BluetoothPrinter {
     // Additional services that might be used by thermal printers
     'FF00',
     'FF10',
-    '49535343-FE7D-4AE5-8FA9-9FAFD205E455'
+    '49535343-FE7D-4AE5-8FA9-9FAFD205E455',
+    // Add more 58mm thermal printer service UUIDs
+    '000018f0-0000-1000-8000-00805f9b34fb',  // Generic Thermal Printer
+    'FFB0',  // Common 58mm printer service
   ];
   
   private knownPrinterCharacteristics = [
@@ -554,19 +556,20 @@ class BluetoothPrinter {
     }
   }
 
-  // Optimize receipt formatting for HS6632M Ver 1.0.4
+  // Add 58mm paper width support in ESC/POS formatting
   private formatReceiptContent(data: ReceiptData): string {
-    // Create a nicely formatted receipt with ESC/POS commands optimized for HS6632M
     let receipt = '';
     
-    // Initialize printer
-    receipt += '\x1B@'; // Initialize printer
+    // Initialize for 58mm printer
+    receipt += '\x1B@';  // Reset printer
+    receipt += '\x1D(L\x04\x00\x30\x58\x02\x01';  // Set page mode for 58mm
+    receipt += '\x1B\x63\x30\x02';  // Set line feed mode for thermal
     
-    // Store header with nice formatting
-    receipt += '\x1B\x61\x01'; // Center align
-    receipt += '\x1B\x21\x08'; // Emphasized mode
+    // Center and emphasize store name
+    receipt += '\x1B\x61\x01';  // Center align
+    receipt += '\x1B\x21\x08';  // Emphasized mode
     receipt += `${data.storeName}\n`;
-    receipt += '\x1B\x21\x00'; // Normal text
+    receipt += '\x1B\x21\x00';  // Normal text
     receipt += `${data.storeAddress}\n`;
     receipt += `WhatsApp: ${data.storeWhatsapp}\n\n`;
     
@@ -621,6 +624,10 @@ class BluetoothPrinter {
     receipt += `${data.notes || 'Thank you for your purchase!'}\n`;
     receipt += '\n\n\n\n'; // Feed paper
     receipt += '\x1D\x56\x41\x10'; // Cut paper (partial cut)
+    
+    // Add paper cut and eject
+    receipt += '\x0A\x0A';  // Extra paper feed
+    receipt += '\x1D\x56\x41\x10';  // Partial paper cut
     
     return receipt;
   }

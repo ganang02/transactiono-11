@@ -29,26 +29,34 @@ interface ReceiptPreviewProps {
 
 const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ transaction, storeInfo }) => {
   return (
-    <div className="bg-white text-black p-8 rounded-lg shadow-lg max-w-md mx-auto font-mono text-sm">
+    <div 
+      className="bg-white text-black p-4 rounded-lg shadow-lg w-[58mm] mx-auto font-mono text-xs" 
+      style={{ 
+        width: '58mm', 
+        maxWidth: '58mm', 
+        minWidth: '58mm',
+        wordBreak: 'break-word' 
+      }}
+    >
       {/* Store Header */}
-      <div className="text-center mb-4">
-        <h1 className="text-xl font-bold">{storeInfo.name}</h1>
-        <p className="text-gray-600">{storeInfo.address}</p>
-        <p className="text-gray-600">WhatsApp: {storeInfo.whatsapp}</p>
+      <div className="text-center mb-2">
+        <h1 className="text-sm font-bold">{storeInfo.name}</h1>
+        <p className="text-[10px] text-gray-600">{storeInfo.address}</p>
+        <p className="text-[10px] text-gray-600">WA: {storeInfo.whatsapp}</p>
       </div>
       
       {/* Transaction Info */}
-      <div className="mb-4">
-        <p><span className="font-semibold">Transaction:</span> #{transaction.id}</p>
-        <p><span className="font-semibold">Date:</span> {transaction.date}</p>
-        <p><span className="font-semibold">Payment:</span> {transaction.paymentMethod}</p>
+      <div className="mb-2 text-[10px]">
+        <p>Trx: #{transaction.id}</p>
+        <p>Date: {transaction.date}</p>
+        <p>Payment: {transaction.paymentMethod}</p>
       </div>
       
       {/* Divider */}
-      <div className="border-t border-dashed border-gray-300 my-4"></div>
+      <div className="border-t border-dashed border-gray-300 my-2"></div>
       
       {/* Items Header */}
-      <div className="grid grid-cols-12 font-bold mb-2">
+      <div className="grid grid-cols-12 font-bold mb-1 text-[10px]">
         <div className="col-span-6">Item</div>
         <div className="col-span-2 text-center">Qty</div>
         <div className="col-span-2 text-right">Price</div>
@@ -57,7 +65,7 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ transaction, storeInfo 
       
       {/* Items */}
       {transaction.items.map((item, index) => (
-        <div key={index} className="grid grid-cols-12 mb-1">
+        <div key={index} className="grid grid-cols-12 mb-1 text-[10px]">
           <div className="col-span-6 truncate">{item.productName}</div>
           <div className="col-span-2 text-center">{item.quantity}</div>
           <div className="col-span-2 text-right">{formatCurrency(item.price).replace('Rp', '')}</div>
@@ -66,10 +74,10 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ transaction, storeInfo 
       ))}
       
       {/* Divider */}
-      <div className="border-t border-dashed border-gray-300 my-4"></div>
+      <div className="border-t border-dashed border-gray-300 my-2"></div>
       
       {/* Totals */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 text-[10px]">
         <div className="text-right">Subtotal:</div>
         <div className="text-right">{formatCurrency(transaction.subtotal)}</div>
         
@@ -83,8 +91,8 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ transaction, storeInfo 
       {/* Payment details for cash */}
       {transaction.paymentMethod.toLowerCase() === 'cash' && transaction.amountPaid !== undefined && (
         <>
-          <div className="border-t border-dashed border-gray-300 my-4"></div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="border-t border-dashed border-gray-300 my-2"></div>
+          <div className="grid grid-cols-2 gap-2 text-[10px]">
             <div className="text-right">Cash:</div>
             <div className="text-right">{formatCurrency(transaction.amountPaid)}</div>
             
@@ -99,8 +107,8 @@ const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ transaction, storeInfo 
       )}
       
       {/* Footer */}
-      <div className="border-t border-dashed border-gray-300 my-4"></div>
-      <div className="text-center text-gray-600">
+      <div className="border-t border-dashed border-gray-300 my-2"></div>
+      <div className="text-center text-[10px] text-gray-600">
         <p>{storeInfo.notes || 'Thank you for your purchase!'}</p>
       </div>
     </div>
