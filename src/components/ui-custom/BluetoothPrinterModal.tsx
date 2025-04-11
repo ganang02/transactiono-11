@@ -48,10 +48,17 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
   const [activeTab, setActiveTab] = useState<string>('connect');
   const [scanAttempted, setScanAttempted] = useState<boolean>(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState<number>(0);
+  const [scanTimeout, setScanTimeout] = useState<number>(5000); // Start with 5 seconds
   const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
     if (isOpen) {
+      // Reset states when modal opens
+      setScanAttempted(false);
+      setScanError(null);
+      setRetryCount(0);
+      
       if (isNative) {
         // For native, check permissions first and then auto-scan if permissions are granted
         const checkAndScan = async () => {
@@ -66,7 +73,6 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
         // For web, just start scan directly since permissions are handled during scan
         handleScan();
       }
-      setScanError(null);
     }
   }, [isOpen, permissionsGranted]);
 
@@ -84,24 +90,89 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
       // Log current state
       console.log('Starting scan with permissions:', permissionsGranted);
       console.log('Platform:', isNative ? 'Native' : 'Web');
+      console.log('Retry count:', retryCount);
+      console.log('Scan timeout:', scanTimeout);
       
-      const foundDevices = await scanForDevices();
+      // If this is a retry, use a longer timeout
+      const adjustedTimeout = retryCount > 0 ? scanTimeout + (retryCount * 1000) : scanTimeout;
+      console.log('Using adjusted timeout:', adjustedTimeout);
+      
+      // Show toast on scan start
+      toast({
+        title: "Memindai printer",
+        description: `Sedang mencari printer Bluetooth di sekitar (${adjustedTimeout/1000}s)...`,
+      });
+      
+      // Start scan with timeout
+      const scanPromise = scanForDevices();
+      
+      // Set timeout for scan
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Scan timeout - no devices found")), adjustedTimeout);
+      });
+      
+      // Race between scan and timeout
+      const foundDevices = await Promise.race([scanPromise, timeoutPromise]);
       
       console.log('Scan complete, devices found:', foundDevices.length);
       
       if (foundDevices.length === 0) {
+        // Try auto-retry if no devices found
+        if (retryCount < 2) {
+          setRetryCount(prev => prev + 1);
+          setScanTimeout(prev => prev + 2000); // Increase timeout for next attempt
+          
+          toast({
+            title: "Mencoba lagi",
+            description: "Tidak ada printer ditemukan. Mencoba pemindaian lagi...",
+          });
+          
+          // Short delay before retry
+          setTimeout(() => {
+            handleScan();
+          }, 1000);
+          return;
+        }
+        
         setScanError(isNative 
           ? "Tidak ada perangkat ditemukan. Pastikan printer dalam mode pairing dan lokasi diaktifkan."
           : "Tidak ada perangkat ditemukan. Pastikan printer dalam mode pairing dan Bluetooth diaktifkan."
         );
+        
+        toast({
+          title: "Pemindaian selesai",
+          description: "Tidak ada printer ditemukan. Coba tekan tombol pairing di printer.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Printer ditemukan",
+          description: `Ditemukan ${foundDevices.length} perangkat printer`,
+        });
       }
     } catch (error) {
       console.error('Error scanning for devices:', error);
-      setScanError("Gagal memindai: " + (error instanceof Error ? error.message : "Kesalahan tidak diketahui"));
+      
+      // Try to determine the specific error
+      let errorMessage = "Kesalahan tidak diketahui";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        
+        // Check for common Bluetooth errors
+        if (errorMessage.includes("Bluetooth adapter not available")) {
+          errorMessage = "Bluetooth tidak tersedia atau tidak diaktifkan";
+        } else if (errorMessage.includes("User cancelled")) {
+          errorMessage = "Pemindaian dibatalkan oleh pengguna";
+        } else if (errorMessage.includes("timeout")) {
+          errorMessage = "Waktu pemindaian habis. Coba lagi atau restart printer.";
+        }
+      }
+      
+      setScanError("Gagal memindai: " + errorMessage);
       
       toast({
-        title: "Bluetooth scanning failed",
-        description: "Make sure Bluetooth is enabled and permissions are granted",
+        title: "Pemindaian gagal",
+        description: "Pastikan Bluetooth aktif dan printer dalam jangkauan",
         variant: "destructive",
       });
     }
@@ -109,13 +180,37 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
 
   const handleConnect = async (deviceId: string) => {
     try {
+      toast({
+        title: "Menghubungkan",
+        description: "Menghubungkan ke printer. Mohon tunggu...",
+      });
+      
       await connectToDevice(deviceId);
+      
+      toast({
+        title: "Terhubung",
+        description: "Printer berhasil terhubung",
+      });
+      
       onPrinterSelected();
     } catch (error) {
       console.error('Error connecting to device:', error);
+      
+      // Try to get specific error message
+      let errorMessage = "Gagal terhubung ke printer";
+      if (error instanceof Error) {
+        if (error.message.includes("GATT operation failed")) {
+          errorMessage = "Koneksi GATT gagal. Pastikan printer menyala dan siap.";
+        } else if (error.message.includes("service")) {
+          errorMessage = "Layanan printer tidak ditemukan. Mungkin bukan printer thermal.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Koneksi Gagal",
-        description: "Gagal terhubung ke printer. Coba lagi atau pilih printer lain.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -152,6 +247,11 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
         notes: "Terima kasih telah berbelanja!"
       };
       
+      toast({
+        title: "Mengirim data ke printer",
+        description: "Mohon tunggu...",
+      });
+      
       await printReceipt(testReceiptData);
       
       toast({
@@ -160,9 +260,15 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
       });
     } catch (error) {
       console.error("Error printing test receipt:", error);
+      
+      let errorMessage = "Terjadi kesalahan saat mencetak";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Gagal Mencetak",
-        description: "Terjadi kesalahan saat mencoba mencetak struk test",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -180,6 +286,26 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
     if (rssi > -90) return 'Poor';
     return 'Very poor';
   };
+
+  // Helper function to check if device is likely a printer
+  const isProbablyPrinter = (device: any) => {
+    if (!device.name) return true; // If no name, default to showing it
+    
+    const name = device.name.toLowerCase();
+    return (
+      name.includes('print') || 
+      name.includes('hs') || 
+      name.includes('6632') ||
+      name.includes('thermal') || 
+      name.includes('epson') ||
+      name.includes('pos') ||
+      name.includes('bt') ||
+      name.includes('escpos')
+    );
+  };
+
+  // Filter devices to only show potential printers
+  const filteredDevices = devices.filter(isProbablyPrinter);
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -259,10 +385,11 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                   <div className="py-8 flex flex-col items-center justify-center">
                     <Spinner className="h-8 w-8 mb-2" />
                     <p className="text-sm text-muted-foreground">Memindai printer di sekitar...</p>
+                    <p className="text-xs text-muted-foreground mt-1">Mohon tunggu {scanTimeout/1000} detik</p>
                   </div>
-                ) : devices.length > 0 ? (
+                ) : filteredDevices.length > 0 ? (
                   <div className="space-y-2 max-h-60 overflow-auto">
-                    {devices.map((device) => (
+                    {filteredDevices.map((device) => (
                       <div 
                         key={device.id}
                         className={`p-3 rounded-lg border ${
@@ -318,6 +445,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                         </h4>
                         <ul className="text-xs text-blue-700 space-y-1 list-disc pl-4">
                           <li>Pastikan printer Bluetooth menyala dan dalam mode pairing</li>
+                          <li>Tekan tombol pairing pada printer (biasanya tombol FEED/PAPER selama 3 detik)</li>
                           <li>Aktifkan Bluetooth di perangkat Anda</li>
                           {isNative && <li>Aktifkan Lokasi di perangkat Anda (diperlukan Android)</li>}
                           <li>Coba matikan dan nyalakan kembali printer</li>
