@@ -270,7 +270,7 @@ export function useBluetoothPrinter() {
     try {
       setIsScanning(true);
       setDevices([]); // Clear previous devices
-      console.log('Starting device scan...');
+      console.log('Starting device scan with longer timeout...');
       
       // Different approach based on platform
       if (Capacitor.isNativePlatform()) {
@@ -293,7 +293,7 @@ export function useBluetoothPrinter() {
           
           // First, try to get any existing paired devices
           const systemDevices = await getSystemBluetoothDevices();
-          if (systemDevices.length > 0) {
+          if (systemDevices && systemDevices.length > 0) {
             nativeDevices = systemDevices;
           }
           
@@ -329,21 +329,21 @@ export function useBluetoothPrinter() {
             }
           });
           
-          // Wait for a few seconds to collect results
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          // Wait for 10 seconds to collect results - INCREASED from 5 seconds
+          await new Promise(resolve => setTimeout(resolve, 10000));
           
           // Clean up the scan
           await BluetoothLe.stopLEScan();
           listener.remove();
           
-          console.log('Native scan completed');
+          console.log('Native scan completed with results:', nativeDevices.length);
         } catch (error) {
           console.error('Error during native BLE scan:', error);
         }
       } else {
         // For web, use the Web Bluetooth API via our wrapper
         try {
-          console.log('Starting web bluetooth scan');
+          console.log('Starting web bluetooth scan with longer timeouts');
           // Try to get any previously paired devices first
           try {
             const pairedDevices = await bluetoothPrinter.getPairedDevices();
@@ -355,16 +355,18 @@ export function useBluetoothPrinter() {
             console.log('No paired devices or not supported:', err);
           }
           
-          // Then scan for new devices
+          // Then scan for new devices with longer timeout
           const scannedDevices = await bluetoothPrinter.scanForDevices();
           console.log('Found devices from scan:', scannedDevices);
           
           // Add scanned devices without duplicates
-          scannedDevices.forEach(device => {
-            if (!webDevices.some(d => d.id === device.id)) {
-              webDevices.push(device);
-            }
-          });
+          if (scannedDevices && Array.isArray(scannedDevices)) {
+            scannedDevices.forEach(device => {
+              if (!webDevices.some(d => d.id === device.id)) {
+                webDevices.push(device);
+              }
+            });
+          }
         } catch (error) {
           console.error('Error during web bluetooth scan:', error);
         }

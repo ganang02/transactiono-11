@@ -61,6 +61,11 @@ class BluetoothPrinter {
     // Add more 58mm thermal printer service UUIDs
     '000018f0-0000-1000-8000-00805f9b34fb',  // Generic Thermal Printer
     'FFB0',  // Common 58mm printer service
+    // Added more common printer services
+    '000018f0-0000-1000-8000-00805f9b34fb',
+    '00001101-0000-1000-8000-00805f9b34fb',  // Serial Port Profile
+    '03B80E5A-EDE8-4B33-A751-6CE34EC4C700',  // Alternative printer service
+    'E7810A71-73AE-499D-8C15-FAA9AEF0C3F2',  // Common for HS printers
   ];
   
   private knownPrinterCharacteristics = [
@@ -77,7 +82,10 @@ class BluetoothPrinter {
     // Additional characteristics for thermal printers
     'FF02',
     'FF01',
-    '49535343-8841-43F4-A8D4-ECBE34729BB3'
+    '49535343-8841-43F4-A8D4-ECBE34729BB3',
+    // Added more common characteristics
+    '00002af1-0000-1000-8000-00805f9b34fb',
+    '00002af0-0000-1000-8000-00805f9b34fb'
   ];
 
   constructor() {
@@ -137,11 +145,11 @@ class BluetoothPrinter {
     }
     
     try {
-      console.log('Starting Bluetooth scan for HS6632M and other printers...');
+      console.log('Starting Bluetooth scan for HS6632M and other printers with longer timeout...');
       
       let device;
       try {
-        // First try with specific filters for HS6632M
+        // First try with specific filters for HS6632M and common printers
         device = await navigator.bluetooth.requestDevice({
           filters: [
             { namePrefix: 'HS6632' },
@@ -154,15 +162,24 @@ class BluetoothPrinter {
             { namePrefix: 'Thermal' },
             { namePrefix: 'Mini' },
             { namePrefix: 'P' },
+            // Added more options to increase chances of finding the device
+            { namePrefix: 'Printer' },
+            { namePrefix: 'print' },
+            { namePrefix: 'th' },
+            { namePrefix: 'POS' },
           ],
-          optionalServices: this.knownPrinterServices
+          optionalServices: this.knownPrinterServices,
+          // Added a 20 second timeout - though this might not work in all browsers
+          timeoutSeconds: 20
         });
       } catch (err) {
         console.log('Failed with namePrefix filters, trying acceptAllDevices:', err);
         // If that fails, try accepting all devices
         device = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
-          optionalServices: this.knownPrinterServices
+          optionalServices: this.knownPrinterServices,
+          // Added a 20 second timeout - though this might not work in all browsers
+          timeoutSeconds: 20
         });
       }
       
@@ -185,7 +202,6 @@ class BluetoothPrinter {
     }
   }
 
-  // Connect to a device that was previously paired with the system
   async connectToSystemDevice(device: any): Promise<BluetoothDevice> {
     console.log('Connecting to system paired device:', device);
     
@@ -566,10 +582,10 @@ class BluetoothPrinter {
     receipt += '\x1B\x63\x30\x02';  // Set line feed mode for thermal
     
     // Center and emphasize store name
-    receipt += '\x1B\x61\x01';  // Center align
-    receipt += '\x1B\x21\x08';  // Emphasized mode
+    receipt += '\x1B\x61\x01'; // Center align
+    receipt += '\x1B\x21\x08'; // Emphasized mode
     receipt += `${data.storeName}\n`;
-    receipt += '\x1B\x21\x00';  // Normal text
+    receipt += '\x1B\x21\x00'; // Normal text
     receipt += `${data.storeAddress}\n`;
     receipt += `WhatsApp: ${data.storeWhatsapp}\n\n`;
     

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -49,7 +48,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
   const [scanAttempted, setScanAttempted] = useState<boolean>(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState<number>(0);
-  const [scanTimeout, setScanTimeout] = useState<number>(5000); // Start with 5 seconds
+  const [scanTimeout, setScanTimeout] = useState<number>(8000); // Increased from 5000 to 8000 ms
   const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
@@ -58,6 +57,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
       setScanAttempted(false);
       setScanError(null);
       setRetryCount(0);
+      setScanTimeout(8000); // Reset to default 8 seconds
       
       if (isNative) {
         // For native, check permissions first and then auto-scan if permissions are granted
@@ -94,7 +94,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
       console.log('Scan timeout:', scanTimeout);
       
       // If this is a retry, use a longer timeout
-      const adjustedTimeout = retryCount > 0 ? scanTimeout + (retryCount * 1000) : scanTimeout;
+      const adjustedTimeout = retryCount > 0 ? scanTimeout + (retryCount * 2000) : scanTimeout;
       console.log('Using adjusted timeout:', adjustedTimeout);
       
       // Show toast on scan start
@@ -107,24 +107,26 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
       const scanPromise = scanForDevices();
       
       // Set timeout for scan
-      const timeoutPromise = new Promise((_, reject) => {
+      const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error("Scan timeout - no devices found")), adjustedTimeout);
       });
       
       // Race between scan and timeout
       const foundDevices = await Promise.race([scanPromise, timeoutPromise]);
       
-      console.log('Scan complete, devices found:', foundDevices.length);
+      // Safely check if foundDevices is an array and has length property
+      const devicesArray = Array.isArray(foundDevices) ? foundDevices : [];
+      console.log('Scan complete, devices found:', devicesArray.length);
       
-      if (foundDevices.length === 0) {
+      if (devicesArray.length === 0) {
         // Try auto-retry if no devices found
         if (retryCount < 2) {
           setRetryCount(prev => prev + 1);
-          setScanTimeout(prev => prev + 2000); // Increase timeout for next attempt
+          setScanTimeout(prev => prev + 3000); // Increase timeout more aggressively
           
           toast({
             title: "Mencoba lagi",
-            description: "Tidak ada printer ditemukan. Mencoba pemindaian lagi...",
+            description: "Tidak ada printer ditemukan. Mencoba pemindaian lagi dengan waktu lebih lama...",
           });
           
           // Short delay before retry
@@ -141,13 +143,13 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
         
         toast({
           title: "Pemindaian selesai",
-          description: "Tidak ada printer ditemukan. Coba tekan tombol pairing di printer.",
+          description: "Tidak ada printer ditemukan. Coba tekan tombol pairing di printer (FEED selama 3 detik).",
           variant: "destructive",
         });
       } else {
         toast({
           title: "Printer ditemukan",
-          description: `Ditemukan ${foundDevices.length} perangkat printer`,
+          description: `Ditemukan ${devicesArray.length} perangkat printer`,
         });
       }
     } catch (error) {
@@ -304,8 +306,8 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
     );
   };
 
-  // Filter devices to only show potential printers
-  const filteredDevices = devices.filter(isProbablyPrinter);
+  // Filter devices to only show potential printers - show ALL devices during troubleshooting
+  const filteredDevices = devices; // Show all devices to help troubleshoot
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -397,7 +399,7 @@ const BluetoothPrinterModal: React.FC<BluetoothPrinterModalProps> = ({
                             ? 'bg-primary/10 border-primary' 
                             : 'hover:bg-muted/50'
                         } cursor-pointer transition-colors`}
-                        onClick={() => handleConnect(device.id)}
+                        onClick={() => connectToDevice(device.id)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
