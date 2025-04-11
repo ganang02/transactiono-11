@@ -203,8 +203,13 @@ export function useBluetoothPrinter() {
           
           // Try to get the name from our devices list
           const systemDevices = await getSystemBluetoothDevices();
-          // Fix: Safely check for address property or use id as fallback
-          const matchedDevice = systemDevices.find(d => d.id === deviceId || (('address' in d) && d.address === deviceId));
+          // Fix: Safely check for address property
+          const matchedDevice = systemDevices.find(d => {
+            if (d.id === deviceId) return true;
+            if ('address' in d && d.address === deviceId) return true;
+            return false;
+          });
+          
           if (matchedDevice) {
             connectedDevice.name = matchedDevice.name;
           }
@@ -229,7 +234,7 @@ export function useBluetoothPrinter() {
           }
           
           if (!targetDevice) {
-            // If not found, we need to connect using our utility
+            // If not found, it might be a previously saved device that needs reconnection
             return await connectToDevice(deviceId);
           }
           
@@ -479,47 +484,67 @@ export function useBluetoothPrinter() {
   }, [selectedDevice]);
 
   const printReceipt = useCallback(async (receiptData: ReceiptData, copies = 1) => {
+    console.log('Starting print receipt with data:', receiptData);
     try {
       setIsPrinting(true);
-      console.log('Sending print job...');
+      
+      if (!selectedDevice) {
+        throw new Error('Tidak ada printer yang terhubung');
+      }
+      
+      console.log('Sending print job to device:', selectedDevice);
       
       if (Capacitor.isNativePlatform()) {
         // Print using native BLE
-        // This would require a more complex implementation to send ESC/POS commands
-        // over BLE characteristic writes
+        // For now, we'll show a toast until native printing is implemented
         toast({
           title: 'Native Printing',
-          description: 'Native BLE printing is not yet implemented',
-          variant: 'destructive',
+          description: 'Mencoba mencetak via Native BLE...',
+          variant: 'default',
         });
-        return false;
+        
+        // Here we would implement the native print code
+        // For now we'll throw an informative error
+        throw new Error('Printing via Native BLE belum diimplementasikan sepenuhnya. Silakan gunakan web versi.');
       } else {
         // First check if we need to reconnect
         if (!bluetoothPrinter.isConnected() && selectedDevice) {
           console.log('Printer not connected, attempting to reconnect...');
+          
+          // Show reconnect toast
+          toast({
+            title: 'Reconnecting Printer',
+            description: 'Mencoba menghubungkan kembali ke printer...',
+          });
+          
           try {
             await bluetoothPrinter.connectToDevice(selectedDevice.id);
+            toast({
+              title: 'Printer Connected',
+              description: 'Printer berhasil terhubung kembali',
+            });
           } catch (error) {
             console.error('Error reconnecting to device:', error);
-            throw new Error('Printer disconnected. Please reconnect to print.');
+            throw new Error('Printer terputus. Silakan hubungkan kembali untuk mencetak.');
           }
         }
         
         // Now try to print
+        console.log('Sending data to printer...');
         await bluetoothPrinter.printReceipt({ receiptData, copies });
       }
       
-      console.log('Print job completed');
+      console.log('Print job completed successfully');
       toast({
-        title: 'Receipt Printed',
-        description: 'Receipt was successfully sent to the printer',
+        title: 'Struk Tercetak',
+        description: 'Struk berhasil dikirim ke printer',
       });
       return true;
     } catch (error: any) {
       console.error('Error printing receipt:', error);
       toast({
-        title: 'Printing Failed',
-        description: error.message || 'Failed to print receipt. Try reconnecting to the printer.',
+        title: 'Gagal Mencetak',
+        description: error.message || 'Gagal mencetak struk. Coba hubungkan kembali printer.',
         variant: 'destructive',
       });
       return false;

@@ -4,6 +4,7 @@ export interface BluetoothDevice {
   id: string;
   name: string;
   device?: any; // Store the actual browser Bluetooth device
+  address?: string; // Add address field for system-paired devices
 }
 
 export interface PrintOptions {
@@ -53,7 +54,11 @@ class BluetoothPrinter {
     '180F', // Battery Service
     // Special service for HS6632M Ver 1.0.4
     'FFB0',
-    'FEE7'
+    'FEE7',
+    // Additional services that might be used by thermal printers
+    'FF00',
+    'FF10',
+    '49535343-FE7D-4AE5-8FA9-9FAFD205E455'
   ];
   
   private knownPrinterCharacteristics = [
@@ -66,7 +71,11 @@ class BluetoothPrinter {
     // Special characteristic for HS6632M Ver 1.0.4
     'FFB1', 
     'FFB2',
-    'FEE8'
+    'FEE8',
+    // Additional characteristics for thermal printers
+    'FF02',
+    'FF01',
+    '49535343-8841-43F4-A8D4-ECBE34729BB3'
   ];
 
   constructor() {
@@ -88,6 +97,9 @@ class BluetoothPrinter {
         this.characteristic = null;
       });
     }
+    
+    // Log to show the utility was initialized
+    console.log('Bluetooth Printer utility initialized');
   }
 
   isSupported(): boolean {
@@ -127,22 +139,24 @@ class BluetoothPrinter {
       
       let device;
       try {
-        // First try with specific service filters for HS6632M Ver 1.0.4
+        // First try with specific filters for HS6632M
         device = await navigator.bluetooth.requestDevice({
           filters: [
-            // Specific filters for HS6632M
             { namePrefix: 'HS6632' },
             { namePrefix: 'HS' },
-            { namePrefix: 'HS6632' },
             { namePrefix: 'Printer' },
             { namePrefix: 'POS' },
             { namePrefix: 'ESC' },
             { namePrefix: 'BT' },
+            // Add additional common thermal printer prefixes
+            { namePrefix: 'Thermal' },
+            { namePrefix: 'Mini' },
+            { namePrefix: 'P' },
           ],
           optionalServices: this.knownPrinterServices
         });
       } catch (err) {
-        console.log('Failed with service filters, trying acceptAllDevices:', err);
+        console.log('Failed with namePrefix filters, trying acceptAllDevices:', err);
         // If that fails, try accepting all devices
         device = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
@@ -169,7 +183,7 @@ class BluetoothPrinter {
     }
   }
 
-  // NEW: Connect to a device that was previously paired with the system
+  // Connect to a device that was previously paired with the system
   async connectToSystemDevice(device: any): Promise<BluetoothDevice> {
     console.log('Connecting to system paired device:', device);
     
@@ -449,7 +463,7 @@ class BluetoothPrinter {
       const data = encoder.encode(receiptContent);
       
       // For HS6632M Ver 1.0.4, use smaller chunk size (tested for best performance)
-      const CHUNK_SIZE = 64; // Smaller chunks for more reliable printing with HS6632M
+      const CHUNK_SIZE = 48; // Even smaller chunks for more reliable printing with HS6632M
       
       // Print multiple copies if requested
       for (let copy = 0; copy < copies; copy++) {
@@ -460,7 +474,7 @@ class BluetoothPrinter {
         await this.writeToCharacteristic(initData);
         
         // Small delay after initialization - important for HS6632M
-        await new Promise(resolve => setTimeout(resolve, 150));
+        await new Promise(resolve => setTimeout(resolve, 200));
         
         // Send data in chunks
         for (let i = 0; i < data.length; i += CHUNK_SIZE) {
@@ -469,13 +483,13 @@ class BluetoothPrinter {
           
           await this.writeToCharacteristic(chunk);
           
-          // Small delay between chunks - critical for HS6632M Ver 1.0.4
-          await new Promise(resolve => setTimeout(resolve, 120));
+          // Increased delay between chunks - critical for HS6632M Ver 1.0.4
+          await new Promise(resolve => setTimeout(resolve, 150));
         }
         
         // Add delay between copies
         if (copy < copies - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
       
@@ -490,32 +504,49 @@ class BluetoothPrinter {
   
   // Helper method for writing to characteristic with fallback options
   private async writeToCharacteristic(data: Uint8Array): Promise<void> {
+    if (!this.characteristic) {
+      throw new Error('No characteristic available for writing');
+    }
+    
+    console.log(`Writing ${data.length} bytes to printer...`);
+    
     // Try different write methods - HS6632M requires writeWithoutResponse
     try {
       // For HS6632M Ver 1.0.4, prefer writeValueWithoutResponse
       if (this.characteristic.properties.writeWithoutResponse) {
+        console.log('Using writeValueWithoutResponse method');
         await this.characteristic.writeValueWithoutResponse(data);
       } else if (this.characteristic.properties.write) {
+        console.log('Using writeValue method');
         await this.characteristic.writeValue(data);
       } else {
         // Fallback to generic write method
+        console.log('Using fallback write method');
         await this.characteristic.write(data);
       }
+      
+      console.log('Data successfully written to characteristic');
     } catch (e) {
       console.error('Error writing to characteristic:', e);
       
       // Try alternative methods
       try {
+        console.log('Trying alternative write methods...');
         // Try a different method
         if (typeof this.characteristic.writeValueWithoutResponse === 'function') {
+          console.log('Trying writeValueWithoutResponse...');
           await this.characteristic.writeValueWithoutResponse(data);
         } else if (typeof this.characteristic.writeValue === 'function') {
+          console.log('Trying writeValue...');
           await this.characteristic.writeValue(data);
         } else if (typeof this.characteristic.write === 'function') {
+          console.log('Trying write...');
           await this.characteristic.write(data);
         } else {
           throw new Error('No working write method found');
         }
+        
+        console.log('Alternative write method succeeded');
       } catch (e2) {
         console.error('All write methods failed:', e2);
         throw new Error('Failed to send data to printer. Try reconnecting.');
@@ -533,7 +564,7 @@ class BluetoothPrinter {
     
     // Store header with nice formatting
     receipt += '\x1B\x61\x01'; // Center align
-    receipt += '\x1B\x21\x30'; // Double height, double width
+    receipt += '\x1B\x21\x08'; // Emphasized mode
     receipt += `${data.storeName}\n`;
     receipt += '\x1B\x21\x00'; // Normal text
     receipt += `${data.storeAddress}\n`;
