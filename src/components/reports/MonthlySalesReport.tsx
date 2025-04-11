@@ -48,7 +48,7 @@ const MonthlySalesReport = ({ className }: MonthlySalesReportProps) => {
 
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['transactions', selectedYear, selectedMonth],
-    queryFn: () => fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions`)
+    queryFn: () => fetch(`${import.meta.env.VITE_API_URL || 'http://apiplastik.gannuniverse.online/api'}/transactions`)
       .then(res => {
         if (!res.ok) {
           throw new Error('Failed to fetch transactions');
